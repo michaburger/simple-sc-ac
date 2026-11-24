@@ -72,8 +72,8 @@ jobs:
           docker image ls ${{ matrix.program }}:ci
       - name: first start in the container
         run: |
-          docker run -d --name t -e SSCAC_LOG_LEVEL=debug ${{ matrix.program }}:ci
+          docker run -d --name sscac-test -e SSCAC_LOG_LEVEL=debug ${{ matrix.program }}:ci
           sleep 3
-          docker logs t 2>&1 | tee log.txt
+          docker logs sscac-test 2>&1 | tee log.txt
           grep -q '"msg":"started"' log.txt
-          docker rm -f t
+          docker rm -f sscac-test
