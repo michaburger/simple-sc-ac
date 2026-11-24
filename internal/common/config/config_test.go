@@ -56,6 +56,16 @@ func TestFinish(t *testing.T) {
 	}
 }
 
+func TestOtherProgramsVariablesAreFine(t *testing.T) {
+	cfg := DefaultAC()
+	if err := Load(&cfg, "", []string{"SSCAC_BSSCI_LISTEN=:1", "SSCAC_SCACI_BUFFER_MAX=3", "SSCAC_CONFIG=x"}); err != nil {
+		t.Fatalf("variable of simple-sc refused by simple-ac: %v", err)
+	}
+	if err := Load(&cfg, "", []string{"SSCAC_BSSCI_LISEN=:1"}); err == nil {
+		t.Fatal("typo accepted")
+	}
+}
+
 func TestACDefaults(t *testing.T) {
 	cfg := DefaultAC()
 	if err := Load(&cfg, "", []string{"SSCAC_ADMIN_LISTEN=127.0.0.1:9999", "SSCAC_IDLE_PING=1m"}); err != nil {

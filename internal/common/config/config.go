@@ -144,9 +144,16 @@ func Load(cfg any, path string, environ []string) error {
 	if err := applyEnv(reflect.ValueOf(cfg).Elem(), EnvPrefix, env, used); err != nil {
 		return err
 	}
+	// Variables of the other program are fine: both may run in one shell or share an
+	// environment file. Only names that neither program knows are typos.
+	known := map[string]bool{}
+	sc, ac := DefaultSC(), DefaultAC()
+	collectNames(reflect.ValueOf(&sc).Elem(), EnvPrefix, known)
+	collectNames(reflect.ValueOf(&ac).Elem(), EnvPrefix, known)
+	known[EnvPrefix+"_CONFIG"] = true
 	var unknown []string
 	for k := range env {
-		if !used[k] {
+		if !used[k] && !known[k] {
 			unknown = append(unknown, k)
 		}
 	}
@@ -190,6 +197,27 @@ func applyEnv(v reflect.Value, prefix string, env map[string]string, used map[st
 		}
 	}
 	return nil
+}
+
+func collectNames(v reflect.Value, prefix string, out map[string]bool) {
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		f, fv := t.Field(i), v.Field(i)
+		if f.Anonymous {
+			collectNames(fv, prefix, out)
+			continue
+		}
+		tag := strings.Split(f.Tag.Get("toml"), ",")[0]
+		if tag == "" || tag == "-" {
+			continue
+		}
+		name := prefix + "_" + strings.ToUpper(tag)
+		if fv.Kind() == reflect.Struct && fv.Type() != durationType {
+			collectNames(fv, name, out)
+			continue
+		}
+		out[name] = true
+	}
 }
 
 func setValue(fv reflect.Value, raw string) error {
