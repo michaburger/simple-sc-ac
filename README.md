@@ -53,6 +53,10 @@ small file or with environment variables, and it starts with sensible defaults.
 | End-Point Passport | Device data import into the AC | 1.0.0 |
 | Application Layer (blueprints) | Payload decoding | 1.1.0 |
 
+The interface specifications themselves are published by the
+[mioty Alliance](https://mioty-alliance.com), always in their latest version. This
+repository does not copy them.
+
 Some of these interface versions are drafts of the mioty Alliance and will still change.
 simple-sc-ac follows them, so expect breaking changes until they are final. Nothing in this
 repository is a normative statement about mioty.

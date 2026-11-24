@@ -1,0 +1,58 @@
+# Synthetic schema for tests. It describes an invented interface "demo" and has nothing to
+# do with any mioty interface. It uses every feature of the schema format once.
+
+interface: demo
+version: "1.0.0"
+identifier: DEMOXX01
+roles: {initiator_positive: client, initiator_negative: server}
+
+core:
+  command: {type: string, spec: "Text"}
+  opId:    {type: integer, bits: 64, signed: true, spec: "Number"}
+
+types:
+  reading:
+    fields:
+      values: {type: array, items: number, spec: "Number[k]"}
+      label:  {type: string, spec: "Text", presence: optional}
+
+operations:
+  hello:
+    title: Hello
+    initiator: client
+    init:
+      version:  {type: string, format: semver, spec: "Text"}
+      deviceId: {type: eui64, spec: "Number"}
+      name:     {type: string, spec: "Text", presence: optional}
+    response:
+      version:  {type: string, format: semver, spec: "Text", presence: optional, default_from: init.version}
+      accepted: {type: bool, spec: "Flag"}
+    complete: {}
+
+  store:
+    title: Store
+    initiator: client
+    init:
+      slot:     {type: integer, bits: 8, signed: false, spec: "Number"}
+      token:    {type: bytes, len: 4, spec: "Number[4]", secret: true}
+      payload:  {type: bytes, spec: "Number[n]"}
+      level:    {type: number, min: 0, max: 1, spec: "Number", presence: optional, default: 0.5}
+      mode:     {type: enum, values: [fast, safe], spec: "Text", presence: optional, default: safe}
+      reading:  {type: reading, spec: "Object", presence: conditional, when: "mode is safe"}
+      tags:     {type: array, items: string, len: 2, spec: "Text[2]", presence: optional}
+    response:
+      code:     {type: integer, spec: "Number"}
+    complete: {}
+
+  ping:
+    title: Ping
+    initiator: both
+    init: {}
+    response: {}
+    complete: {}
+
+errors:
+  error:
+    code:    {type: integer, spec: "Number"}
+    message: {type: string, spec: "Text"}
+  errorAck: {}
