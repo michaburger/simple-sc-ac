@@ -152,7 +152,7 @@ func reception(bs string, msg map[string]any) registry.Reception {
 }
 
 // onDetach answers a detach request. How the SC computes the signature for the end-point
-// in the response is not described in the documents available (finding F-09), so it sends
+// in the response is not described in the specification, so it sends
 // zeros for now and logs it.
 func (sess *Session) onDetach(msg map[string]any) (map[string]any, *engine.OpError) {
 	s := sess.srv
