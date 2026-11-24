@@ -110,6 +110,7 @@ type Engine struct {
 	closed   bool
 	closeErr error
 	done     chan struct{}
+	ready    chan struct{} // closed when Run has set up the writer
 }
 
 type call struct {
@@ -144,7 +145,7 @@ func New(cfg Config) (*Engine, error) {
 	e := &Engine{
 		cfg: cfg, idSrc: id,
 		pending: map[int64]*call{}, serving: map[int64]*operation{},
-		done: make(chan struct{}),
+		done: make(chan struct{}), ready: make(chan struct{}),
 	}
 	if cfg.Side == Opener {
 		e.nextID = 0
@@ -160,6 +161,7 @@ func (e *Engine) Run(ctx context.Context, rw io.ReadWriteCloser) error {
 	e.sendMu.Lock()
 	e.w = framing.NewWriter(rw, e.idSrc)
 	e.sendMu.Unlock()
+	close(e.ready)
 	r := framing.NewReader(rw, e.idSrc)
 	if e.cfg.MaxPayload > 0 {
 		r.MaxPayload = e.cfg.MaxPayload
@@ -267,6 +269,11 @@ func (e *Engine) send(msg map[string]any) error {
 	data, err := codec.Encode(msg)
 	if err != nil {
 		return err
+	}
+	select { // a Call may come before Run has started
+	case <-e.ready:
+	case <-e.done:
+		return ErrClosed
 	}
 	e.sendMu.Lock()
 	defer e.sendMu.Unlock()
