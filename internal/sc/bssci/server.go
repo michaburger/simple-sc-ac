@@ -152,7 +152,11 @@ func (s *Server) handle(ctx context.Context, raw net.Conn) {
 	if tc, ok := raw.(*tls.Conn); ok {
 		_ = tc.SetDeadline(time.Now().Add(10 * time.Second))
 		if err := tc.Handshake(); err != nil {
-			log.Warn("TLS handshake failed", "err", err)
+			if errors.Is(err, io.EOF) { // TCP health checks and port scans
+				log.Debug("connection closed before the TLS handshake")
+			} else {
+				log.Warn("TLS handshake failed", "err", err)
+			}
 			return
 		}
 		_ = tc.SetDeadline(time.Time{})
