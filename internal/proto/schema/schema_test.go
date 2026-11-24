@@ -35,7 +35,7 @@ func TestLoadAndLookup(t *testing.T) {
 	if _, _, ok := s.Lookup("helloXyz"); ok {
 		t.Error("unknown command found")
 	}
-	if got := strings.Join(s.Commands(), ","); got != "hello,ping,store" {
+	if got := strings.Join(s.Commands(), ","); got != "hello,notify,ping,store" {
 		t.Errorf("Commands = %s", got)
 	}
 }

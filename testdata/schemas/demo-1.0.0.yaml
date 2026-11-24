@@ -44,6 +44,14 @@ operations:
       code:     {type: integer, spec: "Number"}
     complete: {}
 
+  notify:
+    title: Notify
+    initiator: server
+    init:
+      text: {type: string, spec: "Text"}
+    response: {}
+    complete: {}
+
   ping:
     title: Ping
     initiator: both
