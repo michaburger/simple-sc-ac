@@ -1,0 +1,21 @@
+# Runtime data and secrets
+*.sqlite
+*.sqlite-*
+certs/
+trace/
+data/
+*.key
+*.pem
+.env
+
+# Never in this repository: specification notes and lab notes belong elsewhere
+spec-refs/
+local/
+
+# Go
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+coverage.*
