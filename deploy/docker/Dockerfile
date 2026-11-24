@@ -3,7 +3,7 @@
 # All state lives in /data (mount a volume there). The image contains no schema files,
 # put them into /data/schemas or set SSCAC_SCHEMA_DIR.
 
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
 ARG PROGRAM=simple-sc
 ARG VERSION=dev
 ARG TARGETOS TARGETARCH
