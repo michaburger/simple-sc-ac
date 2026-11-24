@@ -64,6 +64,26 @@ Send `bundle.json` back to the Application Center. It contains no private key.
 simple-ac keeps the connection up and reconnects by itself. It checks that the Service
 Center has the EUI written in the bundle. `simple-ac sc list` shows all Service Centers.
 
+## Onboarding over REST
+
+In a container (Docker, fly.io, balena) there is no shell to run `simple-ac sc request`.
+The same three steps work over the REST interfaces of both programs:
+
+```sh
+# 1. on the Application Center: key and request, the key stays there
+curl -X POST localhost:8108/api/servicecenters/lab/request > request.json
+# request.json: {"acEui": "02-...", "csr": "-----BEGIN CERTIFICATE REQUEST-----..."}
+
+# 2. on the Service Center: register and sign, the answer is the bundle
+curl -X POST localhost:8107/api/applicationcenters -d '{
+  "acEui": "<acEui from request.json>", "csr": "<csr from request.json>",
+  "name": "my application", "scName": "lab", "address": "sc.example.org:17107"
+}' > bundle.json
+
+# 3. on the Application Center: import, it connects at once
+curl -X POST localhost:8108/api/servicecenters --data-binary @bundle.json
+```
+
 ## Shortcut for a lab
 
 When you run both on your own computer, skip the request: `simple-sc ac add` without

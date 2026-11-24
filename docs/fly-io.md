@@ -80,6 +80,30 @@ With the CA fetched into `fly-ca`, `sim-bs` connects over the internet:
 Accept the simulated base station and add the end-point through the tunnel first, as in
 [getting started](getting-started.md).
 
+## Application Center on fly.io
+
+simple-ac opens the connection to the Service Center itself, so it needs no public port
+and no dedicated IP address. Deploy it as a second app:
+
+```sh
+fly apps create my-simple-ac
+fly volumes create ac_data --size 1 --region fra -a my-simple-ac
+fly deploy --config deploy/fly/fly.ac.toml -a my-simple-ac --remote-only
+```
+
+Port 17107 of the Service Center is already open in `deploy/fly/fly.sc.toml`. Connect
+the two with the [REST onboarding](application-center.md#onboarding-over-rest), through
+two tunnels:
+
+```sh
+fly proxy 18107:8107 -a my-simple-sc
+fly proxy 18108:8108 -a my-simple-ac
+```
+
+Use `localhost:18108` for the Application Center, `localhost:18107` for the Service
+Center, and `my-simple-sc.fly.dev:17107` as `address`: the Application Center reaches the
+Service Center over the internet, like one that runs anywhere else would.
+
 ## Updates
 
 ```sh
@@ -111,3 +135,7 @@ fly machine start <machine ID> -a my-simple-sc
 
 Releasing the IPv4 address saves the rest, but you get a new address next time and have
 to reconfigure your base stations.
+
+The Application Center app costs the same as the Service Center, without the IPv4
+address: about $2.50 a month running, $0.15 stopped. It is of no use while the Service
+Center is stopped, so stop and start both together.

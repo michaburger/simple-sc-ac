@@ -8,7 +8,7 @@
 # Onboarding through the REST interface: fly proxy 18108:8108 -a <your-app>, see
 # docs/fly-io.md.
 
-app = "simple-ac"
+app = "simple-sc-ac-ac"
 primary_region = "fra"
 
 [build]

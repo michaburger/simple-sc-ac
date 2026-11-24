@@ -21,6 +21,7 @@ authentication: keep them on your own computer or a private network.
 | `DELETE /api/endpoints/{eui}` | Remove an end-point and detach it at all base stations |
 | `GET /api/uplinks?ep={eui}&limit={n}` | The newest uplinks, of all end-points or of one, default 50 |
 | `GET /api/applicationcenters` | Registered Application Centers, connected or not |
+| `POST /api/applicationcenters` | Register an Application Center and get its bundle, see [onboarding over REST](application-center.md#onboarding-over-rest) |
 | `POST /api/applicationcenters/{eui}/disable` | Lock an Application Center out and close its connection |
 | `POST /api/applicationcenters/{eui}/enable` | Let it connect again |
 | `GET /api/usage?days={n}` | Usage counters per Application Center and day, default 7 days |
@@ -96,6 +97,8 @@ payload as hex. `receptions` has one entry per base station that received it.
 |---|---|
 | `GET /api/status` | Version, EUI, Service Centers and their connection |
 | `GET /api/servicecenters` | The Service Centers from `data/sc` |
+| `POST /api/servicecenters/{name}/request` | Create key and certificate request for a Service Center |
+| `POST /api/servicecenters` | Import a bundle and connect |
 | `GET /api/servicecenters/{name}/status` | Ask a Service Center for its status and its base stations |
 | `GET /api/endpoints` | All end-points with registrations and state, without keys |
 | `POST /api/endpoints` | Add or replace an end-point and register it at every connected Service Center |
