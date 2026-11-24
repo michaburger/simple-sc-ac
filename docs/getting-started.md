@@ -108,6 +108,7 @@ Keys never appear in the trace.
 
 ## Next
 
+- Add the Application Center and receive the uplinks there: [Connecting an Application Center](application-center.md).
 - Connect a real base station: [Connecting a base station](base-stations.md).
 - Run simple-sc in the cloud: [Running on fly.io](fly-io.md).
 - All settings: [Configuration](configuration.md).

@@ -66,6 +66,10 @@ out, for example the lab CA certificate for a base station:
 docker cp simple-sc:/data/ca/ca.pem .
 ```
 
+simple-ac works the same way: build with `--build-arg PROGRAM=simple-ac`, publish the
+admin port `127.0.0.1:8108:8108` with `SSCAC_ADMIN_LISTEN=0.0.0.0:8108`, and copy the
+bundle in with `docker cp`. It needs no incoming port.
+
 The image runs on `linux/amd64` and `linux/arm64`. To build both at once:
 
 ```sh
@@ -86,6 +90,14 @@ Everything simple-sc keeps is in one folder: `data` next to where you start it, 
 | `schemas/` | Empty. A [schema file](../schemas/README.md) here replaces the built-in one of the same version |
 | `sc.sqlite` | Base stations, end-points, uplinks |
 | `trace/trace.jsonl` | Every BSSCI message, one per line, keys removed |
+
+simple-ac has its own data folder with the same layout for `identity` and `trace`, plus:
+
+| Path | Content |
+|---|---|
+| `sc/<name>/bundle.json` | A Service Center: address, its EUI, its CA, the certificate of this Application Center |
+| `sc/<name>/client.key` | The private key for that Service Center |
+| `ac.sqlite` | End-points with their keys, registrations, uplinks |
 
 Back up the folder to keep your network: copy it while simple-sc is stopped. Delete it to
 start from scratch, with a new EUI and a new certificate authority.

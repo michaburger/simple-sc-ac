@@ -10,8 +10,8 @@ End-point ~~radio~~> Base station ──BSSCI──> simple-sc ──SCACI──
 
 - **simple-sc** is the Service Center. Base stations connect to it, it attaches the
   end-points and collects their uplinks.
-- **simple-ac** is the Application Center. It will hold your end-points and their keys,
-  decode the payloads and publish them on MQTT.
+- **simple-ac** is the Application Center. It holds your end-points and their keys,
+  registers them at one or more Service Centers and receives their uplinks.
 
 ## What works today
 
@@ -19,11 +19,15 @@ End-point ~~radio~~> Base station ──BSSCI──> simple-sc ──SCACI──
   certificates.
 - End-points attach over the air or are pre-attached. Uplinks received by several base
   stations are merged into one.
-- A local REST interface to add end-points, accept base stations and read uplinks.
+- simple-ac connects to Service Centers over SCACI 1.1, registers its end-points there and
+  receives their uplinks and status. Uplinks are kept while it is offline.
+- Onboarding with certificates: the Service Center decides which Application Centers may
+  connect, and an end-point belongs to the Application Center that registered it.
+- Local REST interfaces on both programs.
 - `sim-bs`, a simulated base station, so you can try everything without hardware.
 - `trace-view`, to read every message that went over the wire.
 
-simple-ac, the MQTT output and downlinks are not there yet.
+Payload decoding, the MQTT output and downlinks are not there yet.
 
 ## What it is not
 
@@ -52,8 +56,9 @@ takes you from here to a first uplink in a few minutes, with a simulated base st
 | [Installation](docs/installation.md) | Build from source, run with Docker, the data folder |
 | [Getting started](docs/getting-started.md) | First run, add an end-point, simulate a base station, read the uplinks |
 | [Connecting a base station](docs/base-stations.md) | Certificates, address and port, accepting a new base station |
+| [Connecting an Application Center](docs/application-center.md) | Onboarding simple-ac, adding end-points, receiving uplinks |
 | [Configuration](docs/configuration.md) | Every setting, as file entry and as environment variable |
-| [REST interface](docs/rest-api.md) | Endpoints of the local admin interface |
+| [REST interface](docs/rest-api.md) | Endpoints of the local admin interfaces |
 | [Running on fly.io](docs/fly-io.md) | Deploy simple-sc to the cloud, and keep the cost low |
 | [Tools](docs/tools.md) | `sim-bs` and `trace-view` |
 
@@ -62,7 +67,7 @@ takes you from here to a first uplink in a few minutes, with a simulated base st
 | Interface | Between | Versions |
 |---|---|---|
 | BSSCI | Base station and Service Center | 1.0 and 1.1, chosen per base station |
-| SCACI | Service Center and Application Center | 1.1 (simple-ac, in progress) |
+| SCACI | Service Center and Application Center | 1.1 |
 | ACINT | Application Center and application, over MQTT | 0.0.1 (in progress) |
 
 The specifications are published by the [mioty Alliance](https://mioty-alliance.com).

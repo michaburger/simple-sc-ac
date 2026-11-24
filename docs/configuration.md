@@ -51,6 +51,21 @@ listen = "127.0.0.1:8107"
 
 Durations are written like `500ms`, `10s`, `5m`.
 
+## `[scaci]` Application Centers
+
+| Key | Variable | Default | Meaning |
+|---|---|---|---|
+| `listen` | `SSCAC_SCACI_LISTEN` | `:17107` | Address and port for Application Centers |
+| `policy` | `SSCAC_SCACI_POLICY` | `follow` | As for base stations |
+| `mode` | `SSCAC_SCACI_MODE` | `strict` | `strict` refuses messages that do not match the specification, `lenient` logs them |
+| `response_timeout` | `SSCAC_SCACI_RESPONSE_TIMEOUT` | `5s` | How long to wait for an answer |
+| `idle_ping` | `SSCAC_SCACI_IDLE_PING` | `10s` | Ping after this much silence |
+| `buffer_age` | `SSCAC_SCACI_BUFFER_AGE` | `24h` | Uplinks for an offline Application Center are kept this long |
+| `buffer_max` | `SSCAC_SCACI_BUFFER_MAX` | `10000` | and at most this many per Application Center |
+
+Application Centers use the same server certificate and certificate authority as base
+stations. Only Application Centers added with `simple-sc ac add` can connect.
+
 ## `[admin]` REST interface
 
 | Key | Variable | Default | Meaning |
@@ -65,3 +80,16 @@ network.
 If you have your own PKI, set `cert_file` and `key_file` to the server certificate of
 simple-sc and `ca_file` to the CA that issues your base station certificates. simple-sc
 then still binds each base station EUI to the certificate it first connected with.
+
+## simple-ac
+
+simple-ac uses the same mechanism: `-config ac.toml` or `SSCAC_` variables. The Service
+Centers are not in the configuration, they are the bundles in `data/sc`, added with
+`simple-ac sc add`.
+
+| Key | Variable | Default | Meaning |
+|---|---|---|---|
+| `data_dir`, `schema_dir`, `eui`, `log_level`, `trace_file` | as above | as above | Same as for simple-sc |
+| `response_timeout` | `SSCAC_RESPONSE_TIMEOUT` | `5s` | How long to wait for an answer of a Service Center |
+| `idle_ping` | `SSCAC_IDLE_PING` | `10s` | Ping after this much silence |
+| `[admin] listen` | `SSCAC_ADMIN_LISTEN` | `127.0.0.1:8108` | Address of the REST interface, `-` switches it off |
