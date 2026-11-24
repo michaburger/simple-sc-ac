@@ -10,8 +10,10 @@ Open source mioty Service Center (`simple-sc`) and Application Center (`simple-a
    a port or a configuration key, and run every command in it before committing.
 3. Go: standard library first, few dependencies, pure Go only (no cgo), static binaries for
    `amd64`, `arm64` and Windows.
-4. Messages are generic maps validated by the schema files in `schemas/`, no struct per
-   message. Message definitions live in the schema files, not in code.
+4. Messages are generic maps validated by schema files, no struct per message. The schema
+   files of the mioty interfaces are not in this repository: the programs load them from a
+   directory at run time. Never add them, never embed them, never copy their field lists
+   into code, docs or tests. Tests use the synthetic schema files in `testdata/schemas/`.
 5. SC and AC stay separable: no import from `internal/sc` into `internal/ac` or the other
    way. Only `internal/proto` and `internal/common` are shared.
 6. BSSCI 1.0 and 1.1 are both first class. Never send an operation that the version of the
