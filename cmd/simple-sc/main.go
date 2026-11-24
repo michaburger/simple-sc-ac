@@ -72,10 +72,19 @@ func run(args []string) error {
 	}
 	if _, err := os.Stat(filepath.Join(caDir, "sc.pem")); os.IsNotExist(err) {
 		host, _ := os.Hostname()
-		if _, err := ca.Issue(caDir, labca.Request{Name: "sc", EUI: env.EUI.String(), Server: true, Hosts: []string{host, "localhost", "127.0.0.1"}}); err != nil {
+		hosts := []string{host, "localhost", "127.0.0.1"}
+		if app := os.Getenv("FLY_APP_NAME"); app != "" {
+			hosts = append(hosts, app+".fly.dev")
+		}
+		for _, h := range strings.Split(cfg.BSSCI.CertHosts, ",") {
+			if h = strings.TrimSpace(h); h != "" {
+				hosts = append(hosts, h)
+			}
+		}
+		if _, err := ca.Issue(caDir, labca.Request{Name: "sc", EUI: env.EUI.String(), Server: true, Hosts: hosts}); err != nil {
 			return err
 		}
-		env.Log.Info("server certificate issued", "file", filepath.Join(caDir, "sc.pem"))
+		env.Log.Info("server certificate issued", "file", filepath.Join(caDir, "sc.pem"), "hosts", hosts)
 	}
 	return serve(cfg, env, caDir)
 }

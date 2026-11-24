@@ -1,0 +1,46 @@
+# fly.io deployment of simple-sc. Base stations connect with raw TLS on port 16107, which
+# needs a dedicated IPv4 address (fly ips allocate-v4) or IPv6. The admin REST interface
+# stays on 127.0.0.1 inside the machine, reach it with "fly ssh console" or "fly proxy".
+#
+#   fly launch --no-deploy --copy-config --config deploy/fly/fly.sc.toml --name <your-app>
+#   fly volumes create sc_data --size 1 --region fra --config deploy/fly/fly.sc.toml
+#   fly ips allocate-v4 --config deploy/fly/fly.sc.toml
+#   fly deploy --config deploy/fly/fly.sc.toml
+#
+# Put the interface schema files into /data/schemas (fly ssh sftp shell), then restart.
+
+app = "simple-sc"
+primary_region = "fra"
+
+[build]
+  dockerfile = "../docker/Dockerfile"
+  [build.args]
+    PROGRAM = "simple-sc"
+
+[env]
+  SSCAC_DATA_DIR = "/data"
+  SSCAC_BSSCI_LISTEN = ":16107"
+
+[mounts]
+  source = "sc_data"
+  destination = "/data"
+
+# Raw TCP, TLS is terminated by simple-sc itself (mutual TLS with the base stations).
+[[services]]
+  protocol = "tcp"
+  internal_port = 16107
+  auto_stop_machines = "off"
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 16107
+
+  [[services.tcp_checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

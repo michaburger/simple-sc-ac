@@ -48,6 +48,9 @@ type BSSCIOptions struct {
 	CertFile string `toml:"cert_file"`
 	KeyFile  string `toml:"key_file"`
 	CAFile   string `toml:"ca_file"`
+	// CertHosts are extra host names or addresses for the lab server certificate,
+	// comma separated. On fly.io <app>.fly.dev is added by itself.
+	CertHosts string `toml:"cert_hosts"`
 }
 
 // Admin is the local REST interface.
