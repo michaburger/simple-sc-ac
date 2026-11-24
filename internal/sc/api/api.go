@@ -1,5 +1,5 @@
 // Package api is the local REST interface of simple-sc. Until the Application Center
-// registers end-points over SCACI (M2), end-points are entered here. It listens on
+// registers end-points over SCACI, end-points are entered here. It listens on
 // 127.0.0.1 by default and has no authentication, do not expose it.
 package api
 
