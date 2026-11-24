@@ -23,17 +23,6 @@ fly deploy --config deploy/fly/fly.sc.toml -a my-simple-sc --remote-only
 your base stations, for the volume and in `primary_region` of
 `deploy/fly/fly.sc.toml`.
 
-The first deploy reports failing health checks: simple-sc keeps its BSSCI port closed
-until it has schema files. Upload them to the volume:
-
-```sh
-fly ssh sftp put bssci-1.0.yaml /data/schemas/bssci-1.0.yaml -a my-simple-sc
-fly ssh sftp put bssci-1.1.yaml /data/schemas/bssci-1.1.yaml -a my-simple-sc
-fly apps restart my-simple-sc
-```
-
-On Windows run these in PowerShell, Git Bash turns `/data/...` into a Windows path.
-
 Check that it runs:
 
 ```sh
@@ -81,8 +70,7 @@ reach this interface, so keep simple-sc in an organisation of its own.
 
 ## Test from your computer
 
-With the CA fetched into `fly-ca` and the schema files in `fly-ca/schemas`, `sim-bs`
-connects over the internet:
+With the CA fetched into `fly-ca`, `sim-bs` connects over the internet:
 
 ```sh
 ./bin/sim-bs -sc <IPv4 address>:16107 -server-name my-simple-sc.fly.dev -data fly-ca \

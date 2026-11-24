@@ -3,47 +3,31 @@
 From nothing to a first uplink, on one computer, without hardware. A simulated base
 station stands in for a real one. Takes about ten minutes.
 
-You need the programs from the [installation guide](installation.md) and the interface
-schema files. The commands are for a Linux or macOS shell. On Windows use the same
+You need the programs from the [installation guide](installation.md). The commands are for a Linux or macOS shell. On Windows use the same
 commands in Git Bash, or replace `./bin/simple-sc` with `.\bin\simple-sc.exe` in
 PowerShell.
 
-## 1. First start
+## 1. Start simple-sc
 
-```sh
-./bin/simple-sc
-```
-
-simple-sc creates the `data` folder, gives itself an EUI and a lab certificate
-authority, and tells you that it found no schema files:
-
-```
-... "msg":"identity" ... "eui":"02-E0-C5-D4-B9-87-00-8C","source":"derived from a hardware MAC address"
-... "msg":"lab certificate authority created" ...
-... "msg":"no BSSCI schema files, the BSSCI port stays closed" ...
-```
-
-Stop it with Ctrl+C.
-
-## 2. Add the schema files
-
-Copy the schema files (`bssci-1.0.yaml`, `bssci-1.1.yaml`, ...) into `data/schemas` and
-start again. For this first test, let it accept any base station with a valid certificate:
+For this first test, let it accept any base station with a valid certificate:
 
 ```sh
 SSCAC_BSSCI_UNKNOWN_BASE_STATIONS=accept ./bin/simple-sc
 ```
 
-Now it listens for base stations:
+At the first start simple-sc creates the `data` folder, gives itself an EUI and a lab
+certificate authority, and starts listening:
 
 ```
+... "msg":"identity" ... "eui":"02-E0-C5-D4-B9-87-00-8C","source":"derived from a hardware MAC address"
+... "msg":"lab certificate authority created" ...
 ... "msg":"BSSCI listening","addr":":16107","versions":["1.0.0","1.1.0"],"unknown_base_stations":"accept"
 ... "msg":"admin REST listening","addr":"127.0.0.1:8107"
 ```
 
 Leave it running and open a second terminal for the next steps.
 
-## 3. Add an end-point
+## 2. Add an end-point
 
 An end-point is known by its EUI-64 and its network key. For a simulated end-point, make
 up both. Never use the key of a real device in a test.
@@ -65,7 +49,7 @@ upper case hex digits. simple-sc answers with the new entry, without the key:
 }
 ```
 
-## 4. Simulate a base station
+## 3. Simulate a base station
 
 `sim-bs` connects like a real base station would. It takes the lab certificate authority
 from `data`, gives itself a certificate, attaches the end-point and sends three uplinks:
@@ -89,7 +73,7 @@ the attach and every uplink.
 Try BSSCI 1.0 with `-version 1.0.0`, or two base stations at once with different `-eui`
 values: an uplink both receive is stored once, with both receptions.
 
-## 5. Read the uplinks
+## 4. Read the uplinks
 
 ```sh
 curl "localhost:8107/api/uplinks?limit=3"

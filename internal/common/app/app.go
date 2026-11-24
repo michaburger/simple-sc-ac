@@ -15,6 +15,7 @@ import (
 	"github.com/michaburger/simple-sc-ac/internal/common/identity"
 	"github.com/michaburger/simple-sc-ac/internal/common/idt"
 	"github.com/michaburger/simple-sc-ac/internal/proto/schema"
+	"github.com/michaburger/simple-sc-ac/schemas"
 )
 
 // Env is what a program has after start-up.
@@ -34,8 +35,7 @@ func NewLogger(level string) (*slog.Logger, error) {
 }
 
 // Start creates the state directory, resolves the own EUI and loads the schema files.
-// A missing or empty schema directory is not an error: the interfaces without schema
-// files stay switched off, and the log says so.
+// The schema files are built in, a schema directory can replace or add versions.
 func Start(role string, c *config.Common) (*Env, error) {
 	c.Finish()
 	log, err := NewLogger(c.LogLevel)
@@ -43,7 +43,7 @@ func Start(role string, c *config.Common) (*Env, error) {
 		return nil, err
 	}
 	log = log.With("program", "simple-"+role)
-	// The schema directory is created empty, so that it is clear where the files go.
+	// The schema directory is created empty, for files that replace built-in ones.
 	for _, d := range []string{c.DataDir, filepath.Join(c.DataDir, "identity"), c.SchemaDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return nil, fmt.Errorf("data directory: %w", err)
@@ -69,14 +69,11 @@ func Start(role string, c *config.Common) (*Env, error) {
 	return &Env{Log: log, EUI: id.EUI, Schemas: set}, nil
 }
 
-// LoadSchemas loads all schema files of dir. A missing directory gives an empty set.
+// LoadSchemas returns the built-in schema files, with the files in dir (if any) replacing
+// or adding interface versions.
 func LoadSchemas(dir string) (*schema.Set, error) {
 	if _, err := os.Stat(dir); errors.Is(err, fs.ErrNotExist) {
-		return schema.Load(emptyFS{})
+		return schema.Load(schemas.FS)
 	}
-	return schema.Load(os.DirFS(dir))
+	return schema.Load(schemas.FS, os.DirFS(dir))
 }
-
-type emptyFS struct{}
-
-func (emptyFS) Open(string) (fs.File, error) { return nil, fs.ErrNotExist }

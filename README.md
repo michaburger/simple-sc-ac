@@ -41,10 +41,9 @@ go build -o bin/ ./cmd/...
 ./bin/simple-sc
 ```
 
-The first start creates a `data` folder with a lab certificate authority, the server
-certificate and an empty `data/schemas` folder. Put the interface schema files there and
-start again. The [getting started guide](docs/getting-started.md) takes you from here to
-a first uplink in a few minutes, with a simulated base station.
+simple-sc creates a `data` folder with its identity and a lab certificate authority, and
+waits for base stations on port 16107. The [getting started guide](docs/getting-started.md)
+takes you from here to a first uplink in a few minutes, with a simulated base station.
 
 ## Documentation
 
@@ -63,14 +62,14 @@ a first uplink in a few minutes, with a simulated base station.
 | Interface | Between | Versions |
 |---|---|---|
 | BSSCI | Base station and Service Center | 1.0 and 1.1, chosen per base station |
-| SCACI | Service Center and Application Center | 1.1 and 1.0 (simple-ac, in progress) |
+| SCACI | Service Center and Application Center | 1.1 (simple-ac, in progress) |
 | ACINT | Application Center and application, over MQTT | 0.0.1 (in progress) |
 
-simple-sc reads the message definitions of each interface version from schema files in
-`data/schemas`. They are derived from the mioty specifications, which are published by
-the [mioty Alliance](https://mioty-alliance.com), and are not part of this repository.
-Some interface versions are drafts and will still change, so expect breaking changes.
-Nothing here is a normative statement about mioty.
+The specifications are published by the [mioty Alliance](https://mioty-alliance.com).
+simple-sc-ac keeps the message definitions of each interface version in
+[schema files](schemas/README.md), built into the programs. Some versions are drafts and
+will still change, so expect breaking changes. Nothing here is a normative statement
+about mioty.
 
 ## Licence
 

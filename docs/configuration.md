@@ -28,7 +28,7 @@ listen = "127.0.0.1:8107"
 | Key | Variable | Default | Meaning |
 |---|---|---|---|
 | `data_dir` | `SSCAC_DATA_DIR` | `data`, `/data` in a container | Where everything is kept |
-| `schema_dir` | `SSCAC_SCHEMA_DIR` | `<data_dir>/schemas` | Interface schema files |
+| `schema_dir` | `SSCAC_SCHEMA_DIR` | `<data_dir>/schemas` | [Schema files](../schemas/README.md) that replace or add to the built-in ones |
 | `eui` | `SSCAC_EUI` | derived, see [installation](installation.md#the-eui-of-simple-sc) | EUI-64 of this Service Center, e.g. `70-B3-D5-00-00-00-00-AA` |
 | `log_level` | `SSCAC_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `trace_file` | `SSCAC_TRACE_FILE` | `<data_dir>/trace/trace.jsonl` | Message trace, `-` switches it off |

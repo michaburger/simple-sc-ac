@@ -118,6 +118,6 @@ address, and simple-sc passes it to all base stations at once.
 | `connect refused: unknown base station` | `reject` mode and the base station is not entered |
 | `connect refused: certificate does not match` | The EUI is bound to another certificate |
 | `connect refused: EUI already connected` | A second connection with the same EUI, often an old one not yet closed. Wait a moment |
-| `connect refused: version` | The base station asks for a BSSCI version simple-sc does not have a schema file for |
+| `connect refused: version` | The base station asks for a BSSCI version simple-sc does not know |
 
 `trace-view data/trace/trace.jsonl` shows the exact messages.

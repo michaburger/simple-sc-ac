@@ -1,0 +1,109 @@
+# BSSCI-VM 1.1.0: message definitions for simple-sc-ac, derived from the BSSCI attachment Variable MAC 1.1.0 (draft).
+# "spec" is the type as the specification writes it, "type" is how simple-sc-ac
+# validates it. A note marks where the specification leaves a width or a rule open.
+
+interface: bssci-vm
+version: "1.1.0"
+identifier: MIOTYB01
+roles: {initiator_positive: bs, initiator_negative: sc}
+
+core:
+  command: {type: string, spec: "String"}
+  opId:    {type: integer, bits: 64, signed: true, spec: "Numeric"}
+
+types:
+  subpackets:
+    fields:
+      snr: {type: "array", items: "number", spec: "Numeric[m]"}
+      rssi: {type: "array", items: "number", spec: "Numeric[m]"}
+      freqOff: {type: "array", items: "number", spec: "Numeric[m]"}
+      phase: {type: "array", items: "number", presence: "optional", spec: "Numeric[m]"}
+
+operations:
+
+  vm.activate:
+    title: "VM Activate"
+    initiator: sc
+    note: "initiator inferred, not stated in the draft"
+    init:
+      macMode: {type: "integer", presence: "optional", default: 1, spec: "Numeric", note: "width not stated"}
+      macType: {type: "integer", spec: "Numeric", note: "width not stated"}
+      rxInfoSel: {type: "object", presence: "optional", spec: "Object"}
+    response: {}
+    complete: {}
+
+  vm.deactivate:
+    title: "VM Deactivate"
+    initiator: sc
+    note: "initiator inferred, not stated in the draft"
+    init:
+      macMode: {type: "integer", presence: "optional", default: 1, spec: "Numeric", note: "width not stated"}
+      macType: {type: "integer", spec: "Numeric", note: "width not stated"}
+    response: {}
+    complete: {}
+
+  vm.status:
+    title: "VM Status"
+    initiator: sc
+    note: "initiator inferred: \"queries information\""
+    init: {}
+    response:
+      macModes: {type: "array", items: "integer", presence: "optional", spec: "Numeric[]"}
+      macTypes: {type: "array", items: "integer", spec: "Numeric[]"}
+    complete: {}
+
+  vm.ulData:
+    title: "VM Uplink data"
+    initiator: bs
+    init:
+      phyMode: {type: "enum", values: ["ulp", "hdr", "ulp-ll"], spec: "String"}
+      macMode: {type: "integer", presence: "optional", default: 1, spec: "Numeric", note: "width not stated"}
+      macType: {type: "integer", spec: "Numeric", note: "width not stated"}
+      userData: {type: "bytes", spec: "Numeric[n]"}
+      trxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      sysTime: {type: "integer", bits: 64, spec: "Numeric"}
+      rxDuration: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      freqOff: {type: "number", spec: "Numeric"}
+      bandFreq: {type: "number", spec: "Numeric"}
+      snr: {type: "number", spec: "Numeric"}
+      rssi: {type: "number", spec: "Numeric"}
+      eqSnr: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMin: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMinIdx: {type: "array", items: "number", len: 2, presence: "optional", spec: "Numeric[2]"}
+      subpackets: {type: "subpackets", presence: "optional", spec: "Object"}
+      carrSpace: {type: "integer", spec: "Numeric", note: "width not stated"}
+      pattGrp: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      pattNum: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      crc: {type: "array", items: "number", len: 2, spec: "Numeric[2]"}
+    response: {}
+    complete: {}
+
+  vm.dlData:
+    title: "VM Downlink data"
+    initiator: sc
+    init:
+      phyMode: {type: "enum", values: ["ulp", "hdr", "ulp"], presence: "optional", spec: "String"}
+      macMode: {type: "integer", presence: "optional", default: 1, spec: "Numeric", note: "width not stated"}
+      macType: {type: "integer", spec: "Numeric", note: "width not stated"}
+      userData: {type: "bytes", spec: "Numeric[n]"}
+      trxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      sysTime: {type: "integer", bits: 64, spec: "Numeric"}
+      freqOff: {type: "number", spec: "Numeric"}
+      ulSnr: {type: "number", spec: "Numeric"}
+      ulRssi: {type: "number", spec: "Numeric"}
+      carrOffRange: {type: "integer", spec: "Numeric", note: "width not stated"}
+      ulCrc: {type: "array", items: "number", len: 2, spec: "Numeric[2]"}
+      tsi: {type: "integer", presence: "optional", default: 128, spec: "Numeric", note: "width not stated"}
+      syncBurst: {type: "bool", spec: "Boolean"}
+      dualChan: {type: "bool", spec: "Boolean"}
+      repetition: {type: "bool", spec: "Boolean"}
+      longBlkDist: {type: "bool", spec: "Boolean"}
+      sync: {type: "array", items: "number", len: 6, presence: "optional", spec: "Numeric[6]"}
+    response: {}
+    complete: {}
+
+errors:
+  error:
+    code: {type: "integer", spec: "Numeric"}
+    message: {type: "string", spec: "String"}
+  errorAck: {}

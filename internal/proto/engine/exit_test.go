@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"io/fs"
 	"net"
 	"os"
 	"sync"
@@ -10,19 +11,19 @@ import (
 
 	"github.com/michaburger/simple-sc-ac/internal/proto/schema"
 	"github.com/michaburger/simple-sc-ac/internal/proto/trace"
+	builtin "github.com/michaburger/simple-sc-ac/schemas"
 )
 
-// TestAllOperations is the exit test of milestone M0: two engines exchange every
-// operation of every loaded interface version, with messages generated from the schema,
-// and every message on both sides validates. The schema files of the mioty interfaces are
-// not part of this repository: the test runs only when SSCAC_SCHEMA_DIR points to them,
-// and uses the synthetic schema otherwise.
+// TestAllOperations: two engines exchange every operation of every interface version,
+// with messages generated from the schema, and every message on both sides validates.
+// It covers the synthetic test schema, the built-in schema files, and the files in
+// SSCAC_SCHEMA_DIR if set.
 func TestAllOperations(t *testing.T) {
-	dir := os.Getenv("SSCAC_SCHEMA_DIR")
-	if dir == "" {
-		dir = "../../../testdata/schemas"
+	layers := []fs.FS{os.DirFS("../../../testdata/schemas"), builtin.FS}
+	if dir := os.Getenv("SSCAC_SCHEMA_DIR"); dir != "" {
+		layers = append(layers, os.DirFS(dir))
 	}
-	set, err := schema.Load(os.DirFS(dir))
+	set, err := schema.Load(layers...)
 	if err != nil {
 		t.Fatal(err)
 	}

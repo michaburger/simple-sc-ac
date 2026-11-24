@@ -1,0 +1,263 @@
+# BSSCI 1.0.0 rev1 (mioty Alliance, 2024-07-17, published).
+# Message definitions for simple-sc-ac. Format: schemas/README.md.
+# Reviewed field by field against the published PDF on 2026-11-24.
+# "spec" repeats the type exactly as the document writes it. "type" is how simple-sc-ac
+# validates it. Where the document gives no width or sign, the type says so in "note".
+
+interface: bssci
+version: "1.0.0"
+identifier: MIOTYB01
+roles: {initiator_positive: bs, initiator_negative: sc}   # opId sign per initiator, clause 5.2
+
+core:
+  command: {type: string, spec: "String"}
+  opId:    {type: integer, bits: 64, signed: true, spec: "Numeric", note: "positive and strictly incrementing for the base station, negative and strictly decrementing for the SC, 0 for the first connect"}
+
+types:
+  subpackets:
+    clause: "5.10.1"
+    fields:
+      snr:       {type: array, items: number, spec: "Numeric[m]", unit: dB}
+      rssi:      {type: array, items: number, spec: "Numeric[m]", unit: dBm}
+      frequency: {type: array, items: number, spec: "Numeric[m]", unit: Hz}
+      phase:     {type: array, items: number, spec: "Numeric[m]", unit: degree, presence: optional, note: "+-180"}
+
+operations:
+
+  con:
+    title: Connect
+    clause: "5.3"
+    initiator: bs
+    note: "First operation of every connection, opId 0. No other operation before it completes."
+    init:
+      version:     {type: string, format: semver, spec: "String", note: "requested version, major.minor.patch"}
+      bsEui:       {type: eui64, spec: "Numeric"}
+      vendor:      {type: string, spec: "String", presence: optional}
+      model:       {type: string, spec: "String", presence: optional}
+      name:        {type: string, spec: "String", presence: optional}
+      swVersion:   {type: string, spec: "String", presence: optional}
+      info:        {type: object, spec: "Object", presence: optional, note: "arbitrary key-value pairs"}
+      bidi:        {type: bool, spec: "Boolean"}
+      geoLocation: {type: array, items: number, len: 3, spec: "Numeric[3]", presence: optional, note: "latitude, longitude, altitude"}
+      snBsUuid:    {type: bytes, len: 16, spec: "Numeric[16]", note: "not marked optional in the document, needed to resume a session"}
+      snBsOpId:    {type: integer, bits: 64, signed: true, spec: "Numeric", presence: optional, note: "resume only"}
+      snScOpId:    {type: integer, bits: 64, signed: true, spec: "Numeric", presence: optional, note: "resume only"}
+    response:
+      version:     {type: string, format: semver, spec: "String", presence: optional, default_from: init.version, note: "supported version"}
+      scEui:       {type: eui64, spec: "Numeric"}
+      vendor:      {type: string, spec: "String", presence: optional}
+      model:       {type: string, spec: "String", presence: optional}
+      name:        {type: string, spec: "String", presence: optional}
+      swVersion:   {type: string, spec: "String", presence: optional}
+      info:        {type: object, spec: "Object", presence: optional}
+      snResume:    {type: bool, spec: "Boolean"}
+      snScUuid:    {type: bytes, len: 16, spec: "Numeric[16]"}
+    complete: {}
+
+  ping:
+    title: Ping
+    clause: "5.4"
+    initiator: both
+    init: {}
+    response: {}
+    complete: {}
+
+  status:
+    title: Status
+    clause: "5.5"
+    initiator: sc
+    init: {}
+    response:
+      code:        {type: integer, spec: "Numeric", note: "POSIX error number, 0 for ok"}
+      message:     {type: string, spec: "String"}
+      time:        {type: integer, bits: 64, signed: true, spec: "Numeric", unit: ns, note: "Unix UTC"}
+      dutyCycle:   {type: number, min: 0, max: 1, spec: "Numeric", note: "fraction of TX time, sliding window of one hour"}
+      geoLocation: {type: array, items: number, len: 3, spec: "Numeric[3]", presence: optional}
+      uptime:      {type: number, min: 0, spec: "Numeric", unit: s, presence: optional}
+      temp:        {type: number, spec: "Numeric", unit: degC, presence: optional}
+      cpuLoad:     {type: number, min: 0, max: 1, spec: "Numeric", presence: optional}
+      memLoad:     {type: number, min: 0, max: 1, spec: "Numeric", presence: optional}
+      config:      {type: object, spec: "Object", presence: optional, note: "to be defined in the document"}
+    complete: {}
+
+  att:
+    title: Attach
+    clause: "5.6"
+    initiator: bs
+    init:
+      epEui:       {type: eui64, spec: "Numeric"}
+      rxTime:      {type: integer, bits: 64, signed: true, spec: "Numeric", unit: ns, note: "Unix UTC, centre of the last subpacket"}
+      rxDuration:  {type: integer, spec: "Numeric", unit: ns, presence: optional, note: "centre of first to centre of last subpacket"}
+      attachCnt:   {type: integer, signed: false, spec: "Numeric", note: "width not stated"}
+      snr:         {type: number, spec: "Numeric", unit: dB}
+      rssi:        {type: number, spec: "Numeric", unit: dBm}
+      eqSnr:       {type: number, spec: "Numeric", unit: dB, presence: optional}
+      profile:     {type: string, spec: "String", presence: optional, note: "example in the document: eu1"}
+      subpackets:  {type: subpackets, spec: "Object", presence: optional}
+      nonce:       {type: bytes, len: 4, spec: "Numeric[4]"}
+      sign:        {type: bytes, len: 4, spec: "Numeric[4]"}
+      shAddr:      {type: integer, signed: false, max: 65535, spec: "Numeric", presence: conditional, when: "the base station assigned the short address"}
+      dualChan:    {type: bool, spec: "Boolean"}
+      repetition:  {type: bool, spec: "Boolean"}
+      wideCarrOff: {type: bool, spec: "Boolean"}
+      longBlkDist: {type: bool, spec: "Boolean"}
+    response:
+      nwkSnKey:    {type: bytes, len: 16, spec: "Numeric[16]", secret: true}
+      shAddr:      {type: integer, signed: false, max: 65535, spec: "Numeric", presence: conditional, when: "the base station did not assign the short address"}
+    complete: {}
+
+  det:
+    title: Detach
+    clause: "5.7"
+    initiator: bs
+    init:
+      epEui:       {type: eui64, spec: "Numeric"}
+      rxTime:      {type: integer, bits: 64, signed: true, spec: "Numeric", unit: ns}
+      rxDuration:  {type: integer, spec: "Numeric", unit: ns, presence: optional}
+      packetCnt:   {type: integer, signed: false, spec: "Numeric", note: "width not stated"}
+      snr:         {type: number, spec: "Numeric", unit: dB}
+      rssi:        {type: number, spec: "Numeric", unit: dBm}
+      eqSnr:       {type: number, spec: "Numeric", unit: dB, presence: optional}
+      profile:     {type: string, spec: "String", presence: optional}
+      subpackets:  {type: subpackets, spec: "Object", presence: optional}
+      sign:        {type: bytes, len: 4, spec: "Numeric[4]"}
+    response:
+      sign:        {type: bytes, len: 4, spec: "Numeric[4]", note: "signature for the end-point"}
+    complete: {}
+
+  attPrp:
+    title: Attach propagate
+    clause: "5.8"
+    initiator: sc
+    init:
+      epEui:         {type: eui64, spec: "Numeric"}
+      bidi:          {type: bool, spec: "Boolean"}
+      nwkSnKey:      {type: bytes, len: 16, spec: "Numeric[16]", secret: true}
+      shAddr:        {type: integer, signed: false, max: 65535, spec: "Numeric"}
+      lastPacketCnt: {type: integer, signed: false, spec: "Numeric"}
+      dualChan:      {type: bool, spec: "Boolean"}
+      repetition:    {type: bool, spec: "Boolean"}
+      wideCarrOff:   {type: bool, spec: "Boolean"}
+      longBlkDist:   {type: bool, spec: "Boolean"}
+    response: {}
+    complete: {}
+
+  detPrp:
+    title: Detach propagate
+    clause: "5.9"
+    initiator: sc
+    init:
+      epEui:       {type: eui64, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  ulData:
+    title: UL data
+    clause: "5.10"
+    initiator: bs
+    init:
+      epEui:       {type: eui64, spec: "Numeric"}
+      rxTime:      {type: integer, bits: 64, signed: true, spec: "Numeric", unit: ns}
+      rxDuration:  {type: integer, spec: "Numeric", unit: ns, presence: optional}
+      packetCnt:   {type: integer, signed: false, spec: "Numeric"}
+      snr:         {type: number, spec: "Numeric", unit: dB}
+      rssi:        {type: number, spec: "Numeric", unit: dBm}
+      eqSnr:       {type: number, spec: "Numeric", unit: dB, presence: optional}
+      profile:     {type: string, spec: "String", presence: optional}
+      mode:        {type: string, spec: "String", presence: optional, note: "examples in the document: ulp, ulp-rep, ulp-ll"}
+      subpackets:  {type: subpackets, spec: "Object", presence: optional}
+      userData:    {type: bytes, spec: "Numeric[n]", note: "may be empty"}
+      format:      {type: integer, bits: 8, signed: false, spec: "Numeric", presence: optional, default: 0}
+      dlOpen:      {type: bool, spec: "Boolean"}
+      responseExp: {type: bool, spec: "Boolean", note: "requires dlOpen"}
+      dlAck:       {type: bool, spec: "Boolean", note: "acknowledges the downlink in the window of packetCnt - 1"}
+    response: {}
+    complete: {}
+
+  ulDataTx:
+    title: UL data transmit
+    clause: "5.11"
+    initiator: sc
+    optional_feature: true
+    init:
+      epEui:       {type: eui64, spec: "Numeric"}
+      nwkSnKey:    {type: bytes, len: 16, spec: "Numeric[16]", secret: true}
+      shAddr:      {type: integer, signed: false, max: 65535, spec: "Numeric"}
+      packetCnt:   {type: integer, signed: false, spec: "Numeric"}
+      profile:     {type: string, spec: "String", presence: optional}
+      userData:    {type: bytes, spec: "Numeric[n]"}
+      format:      {type: integer, bits: 8, signed: false, spec: "Numeric", presence: optional, default: 0}
+    response: {}
+    complete: {}
+
+  dlDataQue:
+    title: DL data queue
+    clause: "5.12"
+    initiator: sc
+    init:
+      epEui:        {type: eui64, spec: "Numeric"}
+      queId:        {type: integer, bits: 64, spec: "Numeric", note: "sign not stated"}
+      cntDepend:    {type: bool, spec: "Boolean"}
+      packetCnt:    {type: array, items: integer, spec: "Numeric[m]", presence: conditional, when: "cntDepend is true"}
+      userData:     {type: array, items: bytes, spec: "Numeric[m][n]", note: "one entry per packetCnt, a single entry if cntDepend is false"}
+      format:       {type: integer, bits: 8, signed: false, spec: "Numeric", presence: optional, note: "no default stated, ulData has 0"}
+      prio:         {type: number, spec: "Numeric", presence: optional, default: 0, note: "single precision float, higher is first"}
+      responseExp:  {type: bool, spec: "Boolean", presence: optional, note: "no default stated"}
+      responsePrio: {type: bool, spec: "Boolean", presence: optional, note: "no default stated"}
+      dlWindReq:    {type: bool, spec: "Boolean", presence: optional, note: "no default stated"}
+      expOnly:      {type: bool, spec: "Boolean", presence: optional, note: "no default stated"}
+    response: {}
+    complete: {}
+
+  dlDataRev:
+    title: DL data revoke
+    clause: "5.13"
+    initiator: sc
+    init:
+      epEui:       {type: eui64, spec: "Numeric"}
+      queId:       {type: integer, bits: 64, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlDataRes:
+    title: DL data result
+    clause: "5.14"
+    initiator: bs
+    init:
+      epEui:       {type: eui64, spec: "Numeric"}
+      queId:       {type: integer, bits: 64, spec: "Numeric"}
+      result:      {type: enum, values: [sent, expired, invalid], spec: "String"}
+      txTime:      {type: integer, bits: 64, signed: true, spec: "Numeric", unit: ns, presence: conditional, when: "result is sent", note: "centre of the first subpacket"}
+      packetCnt:   {type: integer, signed: false, spec: "Numeric", presence: conditional, when: "result is sent"}
+    response: {}
+    complete: {}
+
+  dlRxStat:
+    title: DL RX status
+    clause: "5.15"
+    initiator: bs
+    init:
+      epEui:       {type: eui64, spec: "Numeric"}
+      rxTime:      {type: integer, bits: 64, signed: true, spec: "Numeric", unit: ns}
+      packetCnt:   {type: integer, signed: false, spec: "Numeric"}
+      dlRxSnr:     {type: number, spec: "Numeric", unit: dB}
+      dlRxRssi:    {type: number, spec: "Numeric", unit: dBm}
+    response: {}
+    complete: {}
+
+  dlRxStatQry:
+    title: DL RX status query
+    clause: "5.16"
+    initiator: sc
+    init:
+      epEui:       {type: eui64, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+errors:
+  clause: "5.17"
+  note: "May replace the response or the complete message of any operation. errorAck completes the operation. The document lists no error conditions per operation."
+  error:
+    code:          {type: integer, spec: "Numeric", note: "POSIX error number"}
+    message:       {type: string, spec: "String"}
+  errorAck: {}

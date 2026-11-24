@@ -1,0 +1,600 @@
+# SCACI 1.1.0: message definitions for simple-sc-ac, derived from SCACI 1.1.0 (draft).
+# "spec" is the type as the specification writes it, "type" is how simple-sc-ac
+# validates it. A note marks where the specification leaves a width or a rule open.
+
+interface: scaci
+version: "1.1.0"
+identifier: MIOTYA01
+roles: {initiator_positive: ac, initiator_negative: sc}
+
+core:
+  command: {type: string, spec: "String"}
+  opId:    {type: integer, bits: 64, signed: true, spec: "Numeric"}
+
+types:
+  baseStation:
+    fields:
+      bsEui: {type: "eui64", presence: "optional", spec: "Numeric"}
+      bsClass: {type: "enum", values: ["z", "a", "b", "c"], presence: "optional", spec: "String"}
+      code: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      message: {type: "string", presence: "optional", spec: "String"}
+      profile: {type: "array", items: "string", presence: "optional", spec: "String[]"}
+      ulUlp: {type: "bool", presence: "optional", spec: "Boolean"}
+      ulHdr: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlUlp: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlHdr: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlUlpB: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlUlpC: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlHdrC: {type: "bool", presence: "optional", spec: "Boolean"}
+      geoLocation: {type: "array", items: "number", len: 3, presence: "optional", spec: "Numeric[3]"}
+      uptime: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      vendor: {type: "string", presence: "optional", spec: "String"}
+      model: {type: "string", presence: "optional", spec: "String"}
+      name: {type: "string", presence: "optional", spec: "String"}
+      info: {type: "object", presence: "optional", spec: "Object"}
+      ulLoad: {type: "number", presence: "optional", spec: "Numeric"}
+      dlLoad: {type: "number", presence: "optional", spec: "Numeric"}
+      bcnPrd: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      startIdxC: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      densityC: {type: "bool", presence: "optional", spec: "Boolean"}
+  uldata.baseStation:
+    fields:
+      bsEui: {type: "eui64", spec: "Numeric"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      rxDuration: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      snr: {type: "number", spec: "Numeric"}
+      rssi: {type: "number", spec: "Numeric"}
+      eqSnr: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMin: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMinIdx: {type: "array", items: "number", len: 2, presence: "optional", spec: "Numeric[2]"}
+      frequency: {type: "number", presence: "optional", spec: "Numeric"}
+      profile: {type: "string", presence: "optional", spec: "String"}
+      mode: {type: "enum", values: ["ulp", "hdr", "ulp-ll"], presence: "optional", spec: "String"}
+      subpackets: {type: "subpackets", presence: "optional", spec: "Object"}
+      nSubPck: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowSnr: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowRssi: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      pattNum: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+  subpackets:
+    fields:
+      snr: {type: "array", items: "number", spec: "Numeric[m]"}
+      rssi: {type: "array", items: "number", spec: "Numeric[m]"}
+      rxTime: {type: "array", items: "number", spec: "Numeric[m]"}
+      frequency: {type: "array", items: "number", spec: "Numeric[m]"}
+      phase: {type: "array", items: "number", presence: "optional", spec: "Numeric[m]"}
+  node:
+    fields:
+      name: {type: "string", spec: "String"}
+      comment: {type: "string", spec: "String"}
+      type: {type: "enum", values: ["module", "parameter", "input", "output", "message", "procedure", "caller"], spec: "String"}
+      dtype: {type: "any", spec: "String or Object", note: "String or Object"}
+      permit: {type: "array", items: "number", len: 2, spec: "Numeric[2]"}
+  parameter:
+    fields:
+      name: {type: "string", spec: "String"}
+      value: {type: "any", spec: "", note: "no type in the draft, MessagePack value of the parameter"}
+  filter:
+    fields:
+      level: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      drate: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      prate: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      psize: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+
+operations:
+
+  con:
+    title: "Connect"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EPROTONOSUPPORT, reason: "Protocol version not supported"}
+      - {part: init, code: EPERM, reason: "Base Station EUI already in use"}
+      - {part: init, code: EPERM, reason: "Session resume attempt with mismatching session UUID"}
+      - {part: response, code: EPROTONOSUPPORT, reason: "Protocol version not supported"}
+      - {part: response, code: EPERM, reason: "Session resume attempt with mismatching session UUID"}
+    init:
+      version: {type: "string", format: "semver", spec: "String"}
+      acEui: {type: "eui64", spec: "Numeric"}
+      vendor: {type: "string", presence: "optional", spec: "String"}
+      model: {type: "string", presence: "optional", spec: "String"}
+      name: {type: "string", presence: "optional", spec: "String"}
+      swVersion: {type: "string", presence: "optional", spec: "String"}
+      info: {type: "object", presence: "optional", spec: "Object"}
+      snAcUuid: {type: "array", items: "number", len: 16, spec: "Numeric[16]"}
+      snAcOpId: {type: "integer", signed: true, presence: "optional", spec: "Numeric", note: "width not stated"}
+      snScOpId: {type: "integer", signed: true, presence: "optional", spec: "Numeric", note: "width not stated"}
+      rxInfoSel: {type: "object", presence: "optional", spec: "Object"}
+      subchan: {type: "array", items: "string", presence: "optional", spec: "String[]"}
+    response:
+      version: {type: "string", format: "semver", presence: "optional", spec: "String"}
+      scEui: {type: "eui64", spec: "Numeric"}
+      vendor: {type: "string", presence: "optional", spec: "String"}
+      model: {type: "string", presence: "optional", spec: "String"}
+      name: {type: "string", presence: "optional", spec: "String"}
+      swVersion: {type: "string", presence: "optional", spec: "String"}
+      info: {type: "object", presence: "optional", spec: "Object"}
+      snResume: {type: "bool", spec: "Boolean"}
+      snScUuid: {type: "array", items: "number", len: 16, spec: "Numeric[16]"}
+      subchan: {type: "array", items: "string", presence: "optional", spec: "String[]"}
+    complete: {}
+
+  discon:
+    title: "Disconnect"
+    initiator: both
+    init:
+      snRetain: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      reason: {type: "string", presence: "optional", spec: "String"}
+    response:
+      snRetain: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+    complete: {}
+
+  ping:
+    title: "Ping"
+    initiator: both
+    init: {}
+    response: {}
+    complete: {}
+
+  status:
+    title: "Status"
+    initiator: ac
+    init: {}
+    response:
+      code: {type: "integer", spec: "Numeric", note: "width not stated"}
+      message: {type: "string", spec: "String"}
+      time: {type: "integer", bits: 64, spec: "Numeric"}
+      uptime: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      baseStations: {type: "array", items: "uldata.baseStation", presence: "optional", spec: "Object[]"}
+    complete: {}
+
+  reg:
+    title: "Register"
+    initiator: ac
+    error_conditions:
+      - {part: init, code: EPERM, reason: "End Point EUI already in use for End Point group"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      epClass: {type: "enum", values: ["z", "a", "b", "c"], spec: "String"}
+      preAttach: {type: "bool", spec: "Boolean"}
+      nwkKey: {type: "bytes", len: 16, secret: true, spec: "Numeric[16]"}
+      shAddr: {type: "integer", bits: 16, signed: false, presence: "optional", spec: "Numeric"}
+      attachCnt: {type: "integer", signed: false, spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      profile: {type: "string", presence: "optional", spec: "String"}
+      dualChan: {type: "bool", spec: "Boolean"}
+      repetition: {type: "bool", spec: "Boolean"}
+      wideCarrOff: {type: "bool", spec: "Boolean"}
+      longBlkDist: {type: "bool", spec: "Boolean"}
+      syncBurst: {type: "bool", spec: "Boolean"}
+      syncUphold: {type: "integer", presence: "conditional", when: "only if epClass 'b' or 'c'", spec: "Numeric", note: "width not stated"}
+      startIdxC: {type: "integer", presence: "conditional", when: "only if epClass 'c'", spec: "Numeric", note: "width not stated"}
+      densityC: {type: "bool", presence: "conditional", when: "only if epClass 'c'", spec: "Boolean"}
+      ulUlp: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      ulHdr: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlp: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdr: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpB: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdrC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      snNonce: {type: "bytes", len: 4, presence: "optional", spec: "Numeric[4]"}
+      snSign: {type: "bytes", len: 4, presence: "optional", spec: "Numeric[4]"}
+    response: {}
+    complete: {}
+
+  dereg:
+    title: "Deregister"
+    initiator: ac
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EPERM, reason: "End Point not associated"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  lnkAdapt:
+    title: "Link adaptation"
+    initiator: ac
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      ulUlp: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      ulHdr: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlp: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdr: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpB: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdrC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+    response: {}
+    complete: {}
+
+  ulData:
+    title: "UL data"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      baseStations: {type: "array", items: "uldata.baseStation", spec: "Object[]"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      userData: {type: "bytes", spec: "Numeric[n]"}
+      format: {type: "integer", bits: 8, signed: false, presence: "optional", spec: "Numeric"}
+      dlOpen: {type: "bool", spec: "Boolean"}
+      responseExp: {type: "bool", spec: "Boolean"}
+      dlAck: {type: "bool", spec: "Boolean"}
+      duplicate: {type: "bool", presence: "optional", spec: "Boolean"}
+    response: {}
+    complete: {}
+
+  ulDataTx:
+    title: "UL data transmit"
+    initiator: ac
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "UL TX not supported"}
+    init:
+      bsEui: {type: "eui64", presence: "optional", spec: "Numeric"}
+      epEui: {type: "eui64", spec: "Numeric"}
+      nwkSnKey: {type: "bytes", len: 16, secret: true, spec: "Numeric[16]"}
+      shAddr: {type: "integer", bits: 16, signed: false, spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      profile: {type: "string", presence: "optional", spec: "String"}
+      mode: {type: "enum", values: ["ulp", "hdr", "ulp"], presence: "optional", spec: "String"}
+      userData: {type: "bytes", spec: "Numeric[n]"}
+      format: {type: "integer", bits: 8, signed: false, presence: "optional", default: 0, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  ulDataTxRes:
+    title: "UL data transmit result"
+    initiator: both
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      result: {type: "string", spec: "String"}
+      bsEui: {type: "eui64", presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      txTime: {type: "integer", bits: 64, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlDataQue:
+    title: "DL data queue"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EPERM, reason: "End Point not associated"}
+      - {part: init, code: EOPNOTSUPP, reason: "No Base Station available for DL"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      queId: {type: "integer", bits: 64, spec: "Numeric"}
+      cntDepend: {type: "bool", spec: "Boolean"}
+      packetCnt: {type: "array", items: "integer", presence: "conditional", when: "omitted if cntDepend is false", spec: "Numeric[m]"}
+      userData: {type: "array", items: "bytes", presence: "conditional", when: "only if class A transmission shall be considered", spec: "Numeric[m][n]"}
+      packetCntB: {type: "array", items: "integer", presence: "conditional", when: "omitted if cntDepend is false", spec: "Numeric[l]"}
+      userDataB: {type: "array", items: "bytes", presence: "conditional", when: "only if class B transmission shall be considered", spec: "Numeric[l][n]"}
+      packetCntC: {type: "array", items: "integer", presence: "conditional", when: "omitted if cntDepend is false", spec: "Numeric[k]"}
+      userDataC: {type: "array", items: "bytes", presence: "conditional", when: "only if class B transmission shall be considered", spec: "Numeric[k][n]"}
+      format: {type: "integer", bits: 8, signed: false, presence: "optional", spec: "Numeric"}
+      prio: {type: "number", presence: "optional", default: 0.0, spec: "Numeric"}
+      bsEui: {type: "eui64", presence: "optional", spec: "Numeric"}
+      responseExp: {type: "bool", presence: "optional", spec: "Boolean"}
+      responsePrio: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlWindReq: {type: "bool", presence: "optional", spec: "Boolean"}
+      expOnly: {type: "bool", presence: "optional", spec: "Boolean"}
+      amend: {type: "bool", presence: "optional", spec: "Boolean"}
+    response: {}
+    complete: {}
+
+  dlDataRev:
+    title: "DL data revoke"
+    initiator: ac
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EPERM, reason: "End Point not associated"}
+      - {part: init, code: EOPNOTSUPP, reason: "No matching downlink data queued"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      queId: {type: "integer", spec: "Numeric", note: "width not stated"}
+    response: {}
+    complete: {}
+
+  dlDataRes:
+    title: "DL data result"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      queId: {type: "integer", spec: "Numeric", note: "width not stated"}
+      result: {type: "string", spec: "String"}
+      bsEui: {type: "eui64", presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      txTime: {type: "integer", bits: 64, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c", "sent"], presence: "conditional", when: "only if result is “sent”", spec: "String"}
+      packetCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      frameCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      startCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlRxAck:
+    title: "DL RX acknowledge"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not synchronized"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c"], spec: "String"}
+      dlPacketCnt: {type: "integer", signed: false, spec: "Numeric"}
+      dlFrameCnt: {type: "integer", signed: false, presence: "conditional", when: "only if class 'b'", spec: "Numeric"}
+      dlStartCnt: {type: "integer", signed: false, presence: "conditional", when: "only if class 'c'", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlRxStat:
+    title: "DL RX status"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c"], spec: "String"}
+      dlRxSnr: {type: "number", spec: "Numeric"}
+      dlRxRssi: {type: "number", spec: "Numeric"}
+      dlRxEqSnr: {type: "number", presence: "optional", spec: "Numeric"}
+      dlRxFreqOffCore: {type: "number", presence: "optional", spec: "Numeric"}
+      dlRxFreqOffExtMax: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      dlRxTimeOffCore: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      dlRxTimeOffExtMax: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      dlRxRssiSubPckMin: {type: "number", presence: "optional", spec: "Numeric"}
+      dlRxRssiSubPckMax: {type: "number", presence: "optional", spec: "Numeric"}
+      dlRxSnrSymMin: {type: "number", presence: "optional", spec: "Numeric"}
+      dlRxSnrSymMinIdx: {type: "array", items: "number", len: 3, presence: "conditional", when: "only if dlRxSnrSymMin is present", spec: "Numeric[3]"}
+      nDlRxSubPckMiss: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlRxStcs:
+    title: "DL RX statistics"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c"], spec: "String"}
+      dlRxMinSnr: {type: "number", spec: "Numeric"}
+      dlRxAvgSnr: {type: "number", spec: "Numeric"}
+      dlRxMinRssi: {type: "number", spec: "Numeric"}
+      dlRxAvgRssi: {type: "number", spec: "Numeric"}
+      dlRxMinEqSnr: {type: "number", spec: "Numeric"}
+      dlRxAvgEqSnr: {type: "number", spec: "Numeric"}
+      nDlRxData: {type: "integer", signed: false, spec: "Numeric"}
+      nDlRxCore: {type: "integer", signed: false, presence: "conditional", when: "only if class 'a'", spec: "Numeric"}
+      nDlRxBcnCore: {type: "integer", signed: false, presence: "conditional", when: "only if class 'b'", spec: "Numeric"}
+      nDlRxBcnExt: {type: "integer", signed: false, presence: "conditional", when: "only if class 'b'", spec: "Numeric"}
+      nDlRxDataErr: {type: "integer", signed: false, presence: "conditional", when: "only if class 'a' or 'b'", spec: "Numeric"}
+      nDlRxBcnCoreErr: {type: "integer", signed: false, presence: "conditional", when: "only if class 'b'", spec: "Numeric"}
+      nDlRxBcnExtErr: {type: "integer", signed: false, presence: "conditional", when: "only if class 'b'", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  epStat:
+    title: "EP status"
+    initiator: sc
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      epStatus: {type: "enum", values: ["attached", "detached", "synchronized", "desynchronized"], spec: "String"}
+      baseStations: {type: "array", items: "uldata.baseStation", spec: "Object[]"}
+      attachCnt: {type: "integer", signed: false, spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      nonce: {type: "bytes", len: 4, spec: "Numeric[4]"}
+      sign: {type: "bytes", len: 4, spec: "Numeric[4]"}
+      shAddr: {type: "integer", bits: 16, signed: false, spec: "Numeric"}
+      bsEui: {type: "eui64", spec: "Numeric"}
+      bcnPrd: {type: "integer", spec: "Numeric", note: "width not stated"}
+    response: {}
+    complete: {}
+
+  bcnAnnc:
+    title: "Beacon announcement"
+    initiator: sc
+    init:
+      bsEui: {type: "eui64", spec: "Numeric"}
+      bcnCnt: {type: "integer", signed: false, spec: "Numeric"}
+      txTime: {type: "integer", bits: 64, spec: "Numeric"}
+      dlWindC: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      cntOffC: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      cntIntC: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      timeOffC: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      timeIntC: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+    response: {}
+    complete: {}
+
+  grpReg:
+    title: "Group register"
+    initiator: ac
+    error_conditions:
+      - {part: init, code: EPERM, reason: "End Point group EUI already in use for an End Point"}
+    init:
+      grpEui: {type: "eui64", spec: "Numeric"}
+      grpClass: {type: "enum", values: ["b", "c"], spec: "String"}
+      preAssign: {type: "bool", spec: "Boolean"}
+      nwkKey: {type: "bytes", len: 16, secret: true, spec: "Numeric[16]"}
+      dlUlpB: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdrC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      epEui: {type: "array", items: "number", spec: "Numeric[n]"}
+    response: {}
+    complete: {}
+
+  grpDereg:
+    title: "Group deregister"
+    initiator: ac
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point group unknown"}
+      - {part: init, code: EPERM, reason: "End Point group not associated"}
+    init:
+      grpEui: {type: "eui64", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  grpStat:
+    title: "Group status"
+    initiator: sc
+    init:
+      grpEui: {type: "eui64", spec: "Numeric"}
+      epEui: {type: "array", items: "number", spec: "Numeric[n]"}
+    response: {}
+    complete: {}
+
+  rc.dir:
+    title: "ReCon directory"
+    initiator: sc
+    note: "initiator from the ReCon text (\"used by the service center\")"
+    init:
+      path: {type: "string", spec: "String"}
+    response:
+      nodes: {type: "array", items: "node", spec: "Object[]"}
+    complete: {}
+
+  rc.getVal:
+    title: "ReCon get value"
+    initiator: sc
+    note: "initiator from the ReCon text (\"used by the service center\")"
+    init:
+      path: {type: "string", spec: "String"}
+    response:
+      value: {type: "any", spec: "", note: "no type in the draft"}
+    complete: {}
+
+  rc.setVal:
+    title: "ReCon set value"
+    initiator: sc
+    note: "initiator from the ReCon text (\"used by the service center\")"
+    init:
+      path: {type: "string", spec: "String"}
+      value: {type: "any", spec: "", note: "no type in the draft"}
+    response:
+      value: {type: "any", spec: "", note: "no type in the draft"}
+    complete: {}
+
+  rc.getMulVal:
+    title: "ReCon get multiple values"
+    initiator: sc
+    note: "initiator from the ReCon text (\"used by the service center\")"
+    init:
+      path: {type: "string", spec: "String"}
+      syncCnt: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+    response:
+      params: {type: "array", items: "parameter", spec: "Object[]"}
+      syncCnt: {type: "integer", signed: false, spec: "Numeric"}
+    complete: {}
+
+  rc.info:
+    title: "ReCon info"
+    initiator: sc
+    note: "initiator from the ReCon text (\"used by the service center\")"
+    init:
+      path: {type: "string", spec: "String"}
+    response:
+      conn: {type: "array", items: "string", spec: "String[]"}
+      class: {type: "string", spec: "String"}
+      statConf: {type: "object", presence: "optional", spec: "Object"}
+    complete: {}
+
+  rc.sub:
+    title: "ReCon subscribe"
+    initiator: sc
+    note: "initiator from the ReCon text (\"used by the service center\")"
+    init:
+      path: {type: "string", spec: "String"}
+      syncCnt: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  rc.subValUpd:
+    title: "ReCon subscribe"
+    initiator: ac
+    note: "sent by the side that holds the values, the text says \"base station\""
+    init:
+      params: {type: "array", items: "parameter", spec: "Object[]"}
+      syncCnt: {type: "integer", signed: false, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  rc.unsub:
+    title: "ReCon unsubscribe"
+    initiator: sc
+    note: "initiator from the ReCon text (\"used by the service center\")"
+    init:
+      path: {type: "string", spec: "String"}
+    response: {}
+    complete: {}
+
+  rc.conStr:
+    title: "ReCon connect stream"
+    initiator: sc
+    note: "initiator from the ReCon text (\"used by the service center\")"
+    init:
+      path: {type: "string", spec: "String"}
+      filter: {type: "filter", presence: "optional", spec: "Object"}
+    response: {}
+    complete: {}
+
+  rc.strData:
+    title: "ReCon connect stream"
+    initiator: ac
+    note: "sent by the side that holds the values, the text says \"base station\""
+    init:
+      packet: {type: "object", spec: "Object"}
+    response: {}
+    complete: {}
+
+  rc.dconStr:
+    title: "ReCon disconnect stream"
+    initiator: sc
+    note: "initiator from the ReCon text (\"used by the service center\")"
+    init:
+      path: {type: "string", spec: "String"}
+    response: {}
+    complete: {}
+
+  rc.callProc:
+    title: "ReCon call procedure"
+    initiator: sc
+    note: "initiator from the ReCon text (\"used by the service center\")"
+    init:
+      path: {type: "string", spec: "String"}
+      args: {type: "object", spec: "Object"}
+    response:
+      args: {type: "object", spec: "Object"}
+      res: {type: "any", spec: "", note: "no type in the draft"}
+    complete: {}
+
+  rc.error:
+    title: "ReCon Errors"
+    initiator: both
+    note: "error message of the subchannel, handled like error and errorAck"
+    init:
+      code: {type: "integer", spec: "Numeric", note: "width not stated"}
+      message: {type: "string", spec: "String"}
+    response: {}
+    complete: {}
+
+  rc.errorAck:
+    title: "ReCon Errors"
+    initiator: both
+    note: "error message of the subchannel, handled like error and errorAck"
+    init: {}
+    response: {}
+    complete: {}
+
+errors:
+  error:
+    code: {type: "integer", spec: "Numeric", note: "width not stated"}
+    message: {type: "string", spec: "String"}
+  errorAck: {}

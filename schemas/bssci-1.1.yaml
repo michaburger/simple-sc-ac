@@ -1,0 +1,877 @@
+# BSSCI 1.1.0: message definitions for simple-sc-ac, derived from BSSCI 1.1.0 rev2 (draft).
+# "spec" is the type as the specification writes it, "type" is how simple-sc-ac
+# validates it. A note marks where the specification leaves a width or a rule open.
+
+interface: bssci
+version: "1.1.0"
+identifier: MIOTYB01
+roles: {initiator_positive: bs, initiator_negative: sc}
+
+core:
+  command: {type: string, spec: "String"}
+  opId:    {type: integer, bits: 64, signed: true, spec: "Numeric"}
+
+types:
+  subpackets:
+    fields:
+      snr: {type: "array", items: "number", spec: "Numeric[m]"}
+      rssi: {type: "array", items: "number", spec: "Numeric[m]"}
+      rxTime: {type: "array", items: "number", spec: "Numeric[m]"}
+      frequency: {type: "array", items: "number", spec: "Numeric[m]"}
+      phase: {type: "array", items: "number", presence: "optional", spec: "Numeric[m]"}
+
+operations:
+
+  con:
+    title: "Connect"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EPROTONOSUPPORT, reason: "Protocol version not supported"}
+      - {part: init, code: EPERM, reason: "Base Station EUI already in use"}
+      - {part: init, code: EPERM, reason: "Session resume attempt with mismatching session UUID"}
+      - {part: response, code: EPROTONOSUPPORT, reason: "Protocol version not supported"}
+      - {part: response, code: EPERM, reason: "Session resume attempt with mismatching session UUID"}
+    init:
+      version: {type: "string", format: "semver", spec: "String"}
+      bsEui: {type: "eui64", spec: "Numeric"}
+      vendor: {type: "string", presence: "optional", spec: "String"}
+      model: {type: "string", presence: "optional", spec: "String"}
+      name: {type: "string", presence: "optional", spec: "String"}
+      swVersion: {type: "string", presence: "optional", spec: "String"}
+      info: {type: "object", presence: "optional", spec: "Object"}
+      bsClass: {type: "enum", values: ["z", "a", "b", "c"], spec: "String"}
+      bidi: {type: "bool", spec: "Boolean"}
+      profile: {type: "array", items: "string", presence: "optional", spec: "String[]"}
+      ulUlp: {type: "bool", presence: "optional", spec: "Boolean"}
+      ulHdr: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlUlp: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlHdr: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlUlpB: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlUlpC: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlHdrC: {type: "bool", presence: "optional", spec: "Boolean"}
+      geoLocation: {type: "array", items: "number", len: 3, presence: "optional", spec: "Numeric[3]"}
+      snBsUuid: {type: "array", items: "number", len: 16, spec: "Numeric[16]"}
+      snBsOpId: {type: "integer", signed: true, presence: "optional", spec: "Numeric", note: "width not stated"}
+      snScOpId: {type: "integer", signed: true, presence: "optional", spec: "Numeric", note: "width not stated"}
+      subchan: {type: "array", items: "string", presence: "optional", spec: "String[]"}
+    response:
+      version: {type: "string", format: "semver", presence: "optional", spec: "String"}
+      scEui: {type: "eui64", spec: "Numeric"}
+      vendor: {type: "string", presence: "optional", spec: "String"}
+      model: {type: "string", presence: "optional", spec: "String"}
+      name: {type: "string", presence: "optional", spec: "String"}
+      swVersion: {type: "string", presence: "optional", spec: "String"}
+      info: {type: "object", presence: "optional", spec: "Object"}
+      snResume: {type: "bool", spec: "Boolean"}
+      snScUuid: {type: "array", items: "number", len: 16, spec: "Numeric[16]"}
+      rxInfoSel: {type: "object", presence: "optional", spec: "Object"}
+      subchan: {type: "array", items: "string", presence: "optional", spec: "String[]"}
+    complete: {}
+
+  discon:
+    title: "Disconnect"
+    initiator: both
+    init:
+      snRetain: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      reason: {type: "string", presence: "optional", spec: "String"}
+    response:
+      snRetain: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+    complete: {}
+
+  ping:
+    title: "Ping"
+    initiator: both
+    init: {}
+    response: {}
+    complete: {}
+
+  status:
+    title: "Status"
+    initiator: sc
+    init: {}
+    response:
+      code: {type: "integer", spec: "Numeric", note: "width not stated"}
+      message: {type: "string", spec: "String"}
+      time: {type: "integer", bits: 64, spec: "Numeric"}
+      dutyCycle: {type: "number", spec: "Numeric"}
+      noisePwDns: {type: "number", presence: "optional", spec: "Numeric"}
+      geoLocation: {type: "array", items: "number", len: 3, presence: "optional", spec: "Numeric[3]"}
+      uptime: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      temp: {type: "number", presence: "optional", spec: "Numeric"}
+      cpuLoad: {type: "number", presence: "optional", spec: "Numeric"}
+      memLoad: {type: "number", presence: "optional", spec: "Numeric"}
+      config: {type: "object", presence: "optional", spec: "Object"}
+    complete: {}
+
+  att:
+    title: "Attach"
+    initiator: bs
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EPERM, reason: "End Point signature invalid"}
+      - {part: init, code: EINPROGRESS, reason: "Attachment handled by other Base Station"}
+      - {part: init, code: EOPNOTSUPP, reason: "No class A Base Station available"}
+      - {part: response, code: EOPNOTSUPP, reason: "Base Station has no class A support"}
+      - {part: response, code: EOPNOTSUPP, reason: "No pending attachment request available"}
+      - {part: response, code: ETIMEDOUT, reason: "Pending attachment request timed out"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      rxDuration: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      attachCnt: {type: "integer", signed: false, spec: "Numeric"}
+      snr: {type: "number", spec: "Numeric"}
+      rssi: {type: "number", spec: "Numeric"}
+      eqSnr: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMin: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMinIdx: {type: "array", items: "number", len: 2, presence: "optional", spec: "Numeric[2]"}
+      frequency: {type: "number", presence: "optional", spec: "Numeric"}
+      profile: {type: "string", presence: "optional", spec: "String"}
+      mode: {type: "enum", values: ["ulp", "hdr", "ulp-ll"], presence: "optional", spec: "String"}
+      subpackets: {type: "subpackets", presence: "optional", spec: "Object"}
+      nSubPck: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowSnr: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowRssi: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nonce: {type: "bytes", len: 4, spec: "Numeric[4]"}
+      sign: {type: "bytes", len: 4, spec: "Numeric[4]"}
+      shAddr: {type: "integer", bits: 16, signed: false, presence: "conditional", when: "only if assigned by the Base Station", spec: "Numeric"}
+      dualChan: {type: "bool", spec: "Boolean"}
+      repetition: {type: "bool", spec: "Boolean"}
+      wideCarrOff: {type: "bool", spec: "Boolean"}
+      longBlkDist: {type: "bool", spec: "Boolean"}
+      ulUlp: {type: "bool", presence: "optional", spec: "Boolean"}
+      ulHdr: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlUlp: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlHdr: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlUlpB: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlUlpC: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlHdrC: {type: "bool", presence: "optional", spec: "Boolean"}
+      pattGrp: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      pattNum: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+    response:
+      nwkSnKey: {type: "bytes", len: 16, secret: true, spec: "Numeric[16]"}
+      epClass: {type: "enum", values: ["z", "a", "b", "c"], spec: "String"}
+      shAddr: {type: "integer", bits: 16, signed: false, presence: "conditional", when: "only if not assigned by the Base Station", spec: "Numeric"}
+      dualChan: {type: "bool", spec: "Boolean"}
+      repetition: {type: "bool", spec: "Boolean"}
+      wideCarrOff: {type: "bool", spec: "Boolean"}
+      longBlkDist: {type: "bool", spec: "Boolean"}
+      syncBurst: {type: "bool", spec: "Boolean"}
+      syncUphold: {type: "integer", presence: "conditional", when: "only if epClass 'b' or 'c'", spec: "Numeric", note: "width not stated"}
+      startIdxC: {type: "integer", presence: "conditional", when: "only if epClass 'c'", spec: "Numeric", note: "width not stated"}
+      densityC: {type: "bool", presence: "conditional", when: "only if epClass 'c'", spec: "Boolean"}
+      ulUlp: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      ulHdr: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlp: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdr: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpB: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdrC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+    complete: {}
+
+  det:
+    title: "Detach"
+    initiator: bs
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EINPROGRESS, reason: "Detachment handled by other Base Station"}
+      - {part: init, code: EOPNOTSUPP, reason: "No class A Base Station available"}
+      - {part: response, code: EOPNOTSUPP, reason: "Base Station has no class A support"}
+      - {part: response, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: response, code: ETIMEDOUT, reason: "Pending detachment request timed out"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      rxDuration: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      snr: {type: "number", spec: "Numeric"}
+      rssi: {type: "number", spec: "Numeric"}
+      eqSnr: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMin: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMinIdx: {type: "array", items: "number", len: 2, presence: "optional", spec: "Numeric[2]"}
+      frequency: {type: "number", presence: "optional", spec: "Numeric"}
+      profile: {type: "string", presence: "optional", spec: "String"}
+      mode: {type: "enum", values: ["ulp", "hdr", "ulp-ll"], presence: "optional", spec: "String"}
+      subpackets: {type: "subpackets", presence: "optional", spec: "Object"}
+      nSubPck: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowSnr: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowRssi: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      sign: {type: "bytes", len: 4, spec: "Numeric[4]"}
+      pattGrp: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      pattNum: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+    response:
+      sign: {type: "bytes", len: 4, spec: "Numeric[4]"}
+    complete: {}
+
+  attPrp:
+    title: "Attach propagate"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Short address bin limit exceeded"}
+      - {part: init, code: EPERM, reason: "End Point EUI already in use for an End Point group"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      epClass: {type: "enum", values: ["z", "a", "b", "c"], spec: "String"}
+      nwkSnKey: {type: "bytes", len: 16, secret: true, spec: "Numeric[16]"}
+      shAddr: {type: "integer", bits: 16, signed: false, spec: "Numeric"}
+      lastPacketCnt: {type: "integer", signed: false, spec: "Numeric"}
+      dualChan: {type: "bool", spec: "Boolean"}
+      repetition: {type: "bool", spec: "Boolean"}
+      wideCarrOff: {type: "bool", spec: "Boolean"}
+      longBlkDist: {type: "bool", spec: "Boolean"}
+      syncBurst: {type: "bool", spec: "Boolean"}
+      syncUphold: {type: "integer", presence: "conditional", when: "only if epClass 'b' or 'c'", spec: "Numeric", note: "width not stated"}
+      startIdxC: {type: "integer", presence: "conditional", when: "only if epClass 'c'", spec: "Numeric", note: "width not stated"}
+      densityC: {type: "bool", presence: "conditional", when: "only if epClass 'c'", spec: "Boolean"}
+      ulUlp: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      ulHdr: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlp: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdr: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpB: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdrC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+    response: {}
+    complete: {}
+
+  detPrp:
+    title: "Detach propagate"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  lnkAdapt:
+    title: "Link adaptation"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class A support"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point downlink queue limit exceeded"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      ulUlp: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      ulHdr: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlp: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdr: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpB: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdrC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+    response: {}
+    complete: {}
+
+  lnkAdaptRes:
+    title: "Link adaptation result"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      result: {type: "string", spec: "String"}
+      txTime: {type: "integer", bits: 64, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c", "sent"], presence: "conditional", when: "only if result is \"sent\"", spec: "String"}
+      packetCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      frameCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      startCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  lnkAdaptCfm:
+    title: "Link adaptation confirm"
+    initiator: bs
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  ulData:
+    title: "UL data"
+    initiator: bs
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      rxDuration: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      snr: {type: "number", spec: "Numeric"}
+      rssi: {type: "number", spec: "Numeric"}
+      eqSnr: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMin: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMinIdx: {type: "array", items: "number", len: 2, presence: "optional", spec: "Numeric[2]"}
+      frequency: {type: "number", presence: "optional", spec: "Numeric"}
+      profile: {type: "string", presence: "optional", spec: "String"}
+      mode: {type: "enum", values: ["ulp", "hdr", "ulp-ll"], presence: "optional", spec: "String"}
+      subpackets: {type: "subpackets", presence: "optional", spec: "Object"}
+      nSubPck: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowSnr: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowRssi: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      userData: {type: "bytes", spec: "Numeric[n]"}
+      format: {type: "integer", bits: 8, signed: false, presence: "optional", default: 0, spec: "Numeric"}
+      dlOpen: {type: "bool", spec: "Boolean"}
+      responseExp: {type: "bool", spec: "Boolean"}
+      dlAck: {type: "bool", spec: "Boolean"}
+      pattGrp: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      pattNum: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+    response: {}
+    complete: {}
+
+  ulDataTx:
+    title: "UL data transmit"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class Z TX support"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      nwkSnKey: {type: "bytes", len: 16, secret: true, spec: "Numeric[16]"}
+      shAddr: {type: "integer", bits: 16, signed: false, spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      profile: {type: "string", presence: "optional", spec: "String"}
+      mode: {type: "enum", values: ["ulp", "hdr", "ulp"], presence: "optional", spec: "String"}
+      userData: {type: "bytes", spec: "Numeric[n]"}
+      format: {type: "integer", bits: 8, signed: false, presence: "optional", default: 0, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  ulDataTxRes:
+    title: "UL data transmit result"
+    initiator: both
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      result: {type: "string", spec: "String"}
+      txTime: {type: "integer", bits: 64, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlDataQue:
+    title: "DL data queue"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class A support"}
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class B support"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EPERM, reason: "User data size limit exceeded"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point downlink queue limit exceeded"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      queId: {type: "integer", bits: 64, spec: "Numeric"}
+      cntDepend: {type: "bool", spec: "Boolean"}
+      packetCnt: {type: "array", items: "integer", presence: "conditional", when: "omitted if cntDepend is false", spec: "Numeric[m]"}
+      userData: {type: "array", items: "bytes", presence: "conditional", when: "only if class A transmission shall be considered", spec: "Numeric[m][n]"}
+      packetCntB: {type: "array", items: "integer", presence: "conditional", when: "omitted if cntDepend is false", spec: "Numeric[l]"}
+      userDataB: {type: "array", items: "bytes", presence: "conditional", when: "only if class B transmission shall be considered", spec: "Numeric[l][n]"}
+      packetCntC: {type: "array", items: "integer", presence: "conditional", when: "omitted if cntDepend is false", spec: "Numeric[k]"}
+      userDataC: {type: "array", items: "bytes", presence: "conditional", when: "only if class B transmission shall be considered", spec: "Numeric[k][n]"}
+      format: {type: "integer", bits: 8, signed: false, presence: "optional", spec: "Numeric"}
+      prio: {type: "number", presence: "optional", default: 0.0, spec: "Numeric"}
+      responseExp: {type: "bool", presence: "optional", spec: "Boolean"}
+      responsePrio: {type: "bool", presence: "optional", spec: "Boolean"}
+      dlWindReq: {type: "bool", presence: "optional", spec: "Boolean"}
+      expOnly: {type: "bool", presence: "optional", spec: "Boolean"}
+      amend: {type: "bool", presence: "optional", spec: "Boolean"}
+    response: {}
+    complete: {}
+
+  dlDataRev:
+    title: "DL data revoke"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class A support"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "No matching downlink data queued"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      queId: {type: "integer", spec: "Numeric", note: "width not stated"}
+    response: {}
+    complete: {}
+
+  dlDataRes:
+    title: "DL data result"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      queId: {type: "integer", spec: "Numeric", note: "width not stated"}
+      result: {type: "string", spec: "String"}
+      txTime: {type: "integer", bits: 64, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c", "sent"], presence: "conditional", when: "only if result is \"sent\"", spec: "String"}
+      packetCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      frameCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      startCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlBcQue:
+    title: "DL broadcast queue"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class B support"}
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class C support"}
+      - {part: init, code: EPERM, reason: "User data size limit exceeded"}
+      - {part: init, code: EOPNOTSUPP, reason: "Broadcast downlink queue limit exceeded"}
+    init:
+      queId: {type: "integer", bits: 64, spec: "Numeric"}
+      dlClass: {type: "enum", values: ["b", "c"], spec: "String"}
+      userData: {type: "bytes", spec: "Numeric[n]"}
+      format: {type: "integer", bits: 8, signed: false, presence: "optional", spec: "Numeric"}
+      prio: {type: "number", presence: "optional", default: 0.0, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlBcRev:
+    title: "DL broadcast revoke"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class B support"}
+      - {part: init, code: EOPNOTSUPP, reason: "No matching downlink broadcast data found"}
+    init:
+      queId: {type: "integer", spec: "Numeric", note: "width not stated"}
+    response: {}
+    complete: {}
+
+  dlBcRes:
+    title: "DL broadcast result"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "No matching downlink broadcast data found"}
+    init:
+      queId: {type: "integer", spec: "Numeric", note: "width not stated"}
+      result: {type: "string", spec: "String"}
+      txTime: {type: "integer", bits: 64, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["b", "c"], spec: "String"}
+      frameCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      startCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlRxAck:
+    title: "DL RX acknowledge"
+    initiator: bs
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not synchronized"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c"], spec: "String"}
+      dlPacketCnt: {type: "integer", signed: false, presence: "conditional", when: "only if class 'b'", spec: "Numeric"}
+      dlFrameCnt: {type: "integer", signed: false, presence: "conditional", when: "only if class 'b'", spec: "Numeric"}
+      dlStartCnt: {type: "integer", signed: false, presence: "conditional", when: "only if class 'c'", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlRxStat:
+    title: "DL RX status"
+    initiator: bs
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      dlRxSnr: {type: "number", spec: "Numeric"}
+      dlRxRssi: {type: "number", spec: "Numeric"}
+      dlRxEqSnr: {type: "number", presence: "optional", spec: "Numeric"}
+      dlRxFreqOffCore: {type: "number", presence: "optional", spec: "Numeric"}
+      dlRxFreqOffExtMax: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      dlRxTimeOffCore: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      dlRxTimeOffExtMax: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      dlRxRssiSubPckMin: {type: "number", presence: "optional", spec: "Numeric"}
+      dlRxRssiSubPckMax: {type: "number", presence: "optional", spec: "Numeric"}
+      dlRxSnrSymMin: {type: "number", presence: "optional", spec: "Numeric"}
+      dlRxSnrSymMinIdx: {type: "array", items: "number", len: 3, presence: "optional", spec: "Numeric[3]"}
+      nDlRxSubPckMiss: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlRxStatQry:
+    title: "DL RX status query"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class A support"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point downlink queue limit exceeded"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c"], spec: "String"}
+      ext: {type: "bool", presence: "optional", spec: "Boolean"}
+      cert: {type: "bool", presence: "optional", spec: "Boolean"}
+    response: {}
+    complete: {}
+
+  dlRxStatRes:
+    title: "DL RX status result"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      result: {type: "string", spec: "String"}
+      txTime: {type: "integer", bits: 64, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c", "sent"], presence: "conditional", when: "only if result is \"sent\"", spec: "String"}
+      packetCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      frameCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      startCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlRxStcs:
+    title: "DL RX statistics"
+    initiator: bs
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c"], spec: "String"}
+      dlRxMinSnr: {type: "number", spec: "Numeric"}
+      dlRxAvgSnr: {type: "number", spec: "Numeric"}
+      dlRxMinRssi: {type: "number", spec: "Numeric"}
+      dlRxAvgRssi: {type: "number", spec: "Numeric"}
+      dlRxMinEqSnr: {type: "number", spec: "Numeric"}
+      dlRxAvgEqSnr: {type: "number", spec: "Numeric"}
+      nDlRxData: {type: "integer", signed: false, spec: "Numeric"}
+      nDlRxCore: {type: "integer", signed: false, presence: "conditional", when: "only if class 'a'", spec: "Numeric"}
+      nDlRxBcnCore: {type: "integer", signed: false, presence: "conditional", when: "only if class 'b'", spec: "Numeric"}
+      nDlRxBcnExt: {type: "integer", signed: false, presence: "conditional", when: "only if class 'b'", spec: "Numeric"}
+      nDlRxDataErr: {type: "integer", signed: false, presence: "conditional", when: "only if class 'a' or 'b'", spec: "Numeric"}
+      nDlRxBcnCoreErr: {type: "integer", signed: false, presence: "conditional", when: "only if class 'b'", spec: "Numeric"}
+      nDlRxBcnExtErr: {type: "integer", signed: false, presence: "conditional", when: "only if class 'b'", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  dlRxStcsQry:
+    title: "DL RX statistics query"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class A support"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point downlink queue limit exceeded"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c"], spec: "String"}
+    response: {}
+    complete: {}
+
+  dlRxStcsRes:
+    title: "DL RX statistics result"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      result: {type: "string", spec: "String"}
+      txTime: {type: "integer", bits: 64, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c", "sent"], presence: "conditional", when: "only if result is \"sent\"", spec: "String"}
+      packetCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      frameCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      startCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  bcnEn:
+    title: "Beacon enable"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class B support"}
+      - {part: init, code: EINPROGRESS, reason: "Beacon already enabled"}
+      - {part: init, code: EINVAL, reason: "Requested TX time for first beacon out of bounds"}
+    init:
+      bcnPrd: {type: "integer", spec: "Numeric", note: "width not stated"}
+      sysKey: {type: "bytes", len: 16, secret: true, spec: "Numeric[16]"}
+      bcnCnt: {type: "integer", signed: false, presence: "optional", default: 0, spec: "Numeric"}
+      txTime: {type: "integer", bits: 64, presence: "optional", spec: "Numeric"}
+      startIdxC: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      densityC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+    response: {}
+    complete: {}
+
+  bcnDis:
+    title: "Beacon disable"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class B support"}
+      - {part: init, code: EOPNOTSUPP, reason: "Beacon not enabled"}
+    init: {}
+    response: {}
+    complete: {}
+
+  bcnAnnc:
+    title: "Beacon announcement"
+    initiator: bs
+    init:
+      bcnCnt: {type: "integer", signed: false, spec: "Numeric"}
+      txTime: {type: "integer", bits: 64, spec: "Numeric"}
+      dlWindC: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      cntOffC: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      cntIntC: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      timeOffC: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      timeIntC: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+    response: {}
+    complete: {}
+
+  sync:
+    title: "Synchronize"
+    initiator: bs
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EINPROGRESS, reason: "Synchronization handled by other Base Station"}
+      - {part: init, code: EOPNOTSUPP, reason: "No class B Base Station available"}
+      - {part: response, code: EOPNOTSUPP, reason: "Base Station has no class B support"}
+      - {part: response, code: EOPNOTSUPP, reason: "No pending synchronization request available"}
+      - {part: response, code: ETIMEDOUT, reason: "Pending synchronization request timed out"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      rxDuration: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      snr: {type: "number", spec: "Numeric"}
+      rssi: {type: "number", spec: "Numeric"}
+      eqSnr: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMin: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMinIdx: {type: "array", items: "number", len: 2, presence: "optional", spec: "Numeric[2]"}
+      frequency: {type: "number", presence: "optional", spec: "Numeric"}
+      profile: {type: "string", presence: "optional", spec: "String"}
+      mode: {type: "enum", values: ["ulp", "hdr", "ulp-ll"], presence: "optional", spec: "String"}
+      subpackets: {type: "subpackets", presence: "optional", spec: "Object"}
+      nSubPck: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowSnr: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowRssi: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      bcnCycleMax: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      resync: {type: "bool", presence: "optional", spec: "Boolean"}
+      pattGrp: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      pattNum: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+    response:
+      bcnCycle: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      bcnCycleOff: {type: "integer", presence: "conditional", when: "only if bcnCycle is present", spec: "Numeric", note: "width not stated"}
+    complete: {}
+
+  desync:
+    title: "Desynchronize"
+    initiator: bs
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EINPROGRESS, reason: "Desynchronization handled by other Base Station"}
+      - {part: init, code: EOPNOTSUPP, reason: "No class B Base Station available"}
+      - {part: response, code: EOPNOTSUPP, reason: "Base Station has no class B support"}
+      - {part: response, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: response, code: ETIMEDOUT, reason: "Pending desynchronization request timed out"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      rxDuration: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+      snr: {type: "number", spec: "Numeric"}
+      rssi: {type: "number", spec: "Numeric"}
+      eqSnr: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMin: {type: "number", presence: "optional", spec: "Numeric"}
+      snrSymMinIdx: {type: "array", items: "number", len: 2, presence: "optional", spec: "Numeric[2]"}
+      frequency: {type: "number", presence: "optional", spec: "Numeric"}
+      profile: {type: "string", presence: "optional", spec: "String"}
+      mode: {type: "enum", values: ["ulp", "hdr", "ulp-ll"], presence: "optional", spec: "String"}
+      subpackets: {type: "subpackets", presence: "optional", spec: "Object"}
+      nSubPck: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowSnr: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      nSubPckLowRssi: {type: "integer", signed: false, presence: "optional", spec: "Numeric"}
+      pattGrp: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      pattNum: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+    response: {}
+    complete: {}
+
+  syncPrp:
+    title: "Synchronize propagate"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class B support"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      bcnCycle: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+      bcnCycleOff: {type: "integer", presence: "conditional", when: "only if bcnCycle is present", spec: "Numeric", note: "width not stated"}
+      bcnCycleMax: {type: "integer", presence: "optional", spec: "Numeric", note: "width not stated"}
+    response: {}
+    complete: {}
+
+  desyncPrp:
+    title: "Desynchronize propagate"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class B support"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  hndOvr:
+    title: "Handover"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class B support"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  hndOvrRes:
+    title: "Handover result"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      result: {type: "string", spec: "String"}
+      txTime: {type: "integer", bits: 64, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c", "sent"], presence: "conditional", when: "only if result is \"sent\"", spec: "String"}
+      packetCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      frameCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      startCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  grpReg:
+    title: "Group register"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EPERM, reason: "End Point group EUI already in use for an End Point"}
+    init:
+      grpEui: {type: "eui64", spec: "Numeric"}
+      grpClass: {type: "enum", values: ["b", "c"], spec: "String"}
+      nwkKey: {type: "bytes", len: 16, secret: true, spec: "Numeric[16]"}
+      dlUlpB: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlUlpC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+      dlHdrC: {type: "bool", presence: "optional", default: false, spec: "Boolean"}
+    response: {}
+    complete: {}
+
+  grpDereg:
+    title: "Group deregister"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point group unknown"}
+    init:
+      grpEui: {type: "eui64", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  grpAss:
+    title: "Group assign"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class A support"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point group unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      grpEui: {type: "eui64", spec: "Numeric"}
+      epEui: {type: "eui64", spec: "Numeric"}
+      assId: {type: "integer", bits: 8, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  grpAssRes:
+    title: "Group assign result"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      assId: {type: "integer", spec: "Numeric", note: "width not stated"}
+      result: {type: "string", spec: "String"}
+      txTime: {type: "integer", bits: 64, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c", "sent"], presence: "conditional", when: "only if result is \"sent\"", spec: "String"}
+      packetCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      frameCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      startCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  grpAssCfm:
+    title: "Group assign confirm"
+    initiator: bs
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point group unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      assId: {type: "integer", spec: "Numeric", note: "width not stated"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  grpDis:
+    title: "Group dismiss"
+    initiator: sc
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class A support"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point group unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      grpEui: {type: "eui64", spec: "Numeric"}
+      epEui: {type: "eui64", spec: "Numeric"}
+      disId: {type: "integer", bits: 8, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  grpDisRes:
+    title: "Group dismiss result"
+    initiator: both
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      disId: {type: "integer", spec: "Numeric", note: "width not stated"}
+      result: {type: "string", spec: "String"}
+      txTime: {type: "integer", bits: 64, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      dlClass: {type: "enum", values: ["a", "b", "c", "sent"], presence: "conditional", when: "only if result is \"sent\"", spec: "String"}
+      packetCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      frameCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+      startCnt: {type: "integer", signed: false, presence: "conditional", when: "only if result is “sent”", spec: "Numeric"}
+    response: {}
+    complete: {}
+
+  grpDisCfm:
+    title: "Group dismiss confirm"
+    initiator: bs
+    error_conditions:
+      - {part: init, code: EOPNOTSUPP, reason: "End Point group unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
+      - {part: init, code: EOPNOTSUPP, reason: "End Point not attached"}
+    init:
+      epEui: {type: "eui64", spec: "Numeric"}
+      disId: {type: "integer", spec: "Numeric", note: "width not stated"}
+      rxTime: {type: "integer", bits: 64, spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
+    response: {}
+    complete: {}
+
+errors:
+  error:
+    code: {type: "integer", spec: "Numeric", note: "width not stated"}
+    message: {type: "string", spec: "String"}
+  errorAck: {}

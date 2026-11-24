@@ -53,11 +53,9 @@ The admin REST interface has no authentication. Inside the container it has to l
 all interfaces (`SSCAC_ADMIN_LISTEN`), and `-p 127.0.0.1:8107:8107` makes sure it is only
 reachable from your own computer.
 
-The image contains no schema files. Copy them into the volume and restart:
+Check the log:
 
 ```sh
-docker cp ./my-schemas/. simple-sc:/data/schemas/
-docker restart simple-sc
 docker logs simple-sc
 ```
 
@@ -85,7 +83,7 @@ Everything simple-sc keeps is in one folder: `data` next to where you start it, 
 | `ca/ca.pem`, `ca/ca.key` | The lab certificate authority. Keep `ca.key` private |
 | `ca/sc.pem`, `ca/sc.key` | The server certificate base stations see |
 | `ca/issued/` | Certificates you issued with `simple-sc ca issue` |
-| `schemas/` | Interface schema files, you add them |
+| `schemas/` | Empty. A [schema file](../schemas/README.md) here replaces the built-in one of the same version |
 | `sc.sqlite` | Base stations, end-points, uplinks |
 | `trace/trace.jsonl` | Every BSSCI message, one per line, keys removed |
 

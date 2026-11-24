@@ -255,26 +255,32 @@ type Set struct {
 	byKey map[string]*Schema
 }
 
-// Load reads every *.yaml file in the root of fsys.
-func Load(fsys fs.FS) (*Set, error) {
-	names, err := fs.Glob(fsys, "*.yaml")
-	if err != nil {
-		return nil, err
-	}
+// Load reads every *.yaml file in the root of each layer. A later layer replaces an
+// interface version of an earlier one, so that a folder can override built-in files.
+// Two files for the same version within one layer are an error.
+func Load(layers ...fs.FS) (*Set, error) {
 	set := &Set{byKey: map[string]*Schema{}}
-	for _, n := range names {
-		data, err := fs.ReadFile(fsys, n)
+	for _, fsys := range layers {
+		names, err := fs.Glob(fsys, "*.yaml")
 		if err != nil {
 			return nil, err
 		}
-		s, err := Parse(data, path.Base(n))
-		if err != nil {
-			return nil, err
+		seen := map[string]string{}
+		for _, n := range names {
+			data, err := fs.ReadFile(fsys, n)
+			if err != nil {
+				return nil, err
+			}
+			s, err := Parse(data, path.Base(n))
+			if err != nil {
+				return nil, err
+			}
+			if prev, dup := seen[s.Key()]; dup {
+				return nil, fmt.Errorf("%s and %s both define %s", prev, s.source, s.Key())
+			}
+			seen[s.Key()] = s.source
+			set.byKey[s.Key()] = s
 		}
-		if prev, dup := set.byKey[s.Key()]; dup {
-			return nil, fmt.Errorf("%s and %s both define %s", prev.source, s.source, s.Key())
-		}
-		set.byKey[s.Key()] = s
 	}
 	return set, nil
 }

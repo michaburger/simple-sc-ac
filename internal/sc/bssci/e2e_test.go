@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net"
 	"os"
@@ -20,22 +21,19 @@ import (
 	"github.com/michaburger/simple-sc-ac/internal/proto/version"
 	"github.com/michaburger/simple-sc-ac/internal/sc/registry"
 	"github.com/michaburger/simple-sc-ac/internal/sim/bs"
+	builtin "github.com/michaburger/simple-sc-ac/schemas"
 )
 
-// The interface schema files are not in this repository (G-27). These tests run only
-// when SSCAC_SCHEMA_DIR points to them (absolute path).
+// schemas returns the built-in schema files, or the ones in SSCAC_SCHEMA_DIR on top.
 func schemas(t *testing.T) *schema.Set {
 	t.Helper()
-	dir := os.Getenv("SSCAC_SCHEMA_DIR")
-	if dir == "" {
-		t.Skip("SSCAC_SCHEMA_DIR not set, BSSCI schema files needed")
+	layers := []fs.FS{builtin.FS}
+	if dir := os.Getenv("SSCAC_SCHEMA_DIR"); dir != "" {
+		layers = append(layers, os.DirFS(dir))
 	}
-	set, err := schema.Load(os.DirFS(dir))
+	set, err := schema.Load(layers...)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if len(set.Versions(Interface)) == 0 {
-		t.Skip("no BSSCI schema files in SSCAC_SCHEMA_DIR")
 	}
 	return set
 }

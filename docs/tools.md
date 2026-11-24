@@ -15,7 +15,7 @@ own changes, without hardware.
 | `-sc` | `localhost:16107` | Address of simple-sc |
 | `-server-name` | host of `-sc` | Name to check in the server certificate |
 | `-data` | `data` | Data folder of a simple-sc: `sim-bs` takes the CA from there and issues itself a certificate |
-| `-schemas` | `<data>/schemas` | Schema files |
+| `-schemas` | `<data>/schemas` | Schema files that replace or add to the built-in ones |
 | `-eui` | `02-00-00-00-00-00-0B-01` | EUI-64 of the simulated base station |
 | `-version` | `1.1.0` | BSSCI version to ask for |
 | `-ep` | | Simulated end-point as `EUI:KEY`, repeat for several |
