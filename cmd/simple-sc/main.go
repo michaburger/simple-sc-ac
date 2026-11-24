@@ -31,6 +31,7 @@ import (
 	"github.com/michaburger/simple-sc-ac/internal/sc/api"
 	"github.com/michaburger/simple-sc-ac/internal/sc/bssci"
 	"github.com/michaburger/simple-sc-ac/internal/sc/registry"
+	"github.com/michaburger/simple-sc-ac/internal/sc/scaci"
 )
 
 func main() {
@@ -43,6 +44,9 @@ func main() {
 func run(args []string) error {
 	if len(args) > 0 && args[0] == "ca" {
 		return caCommand(args[1:])
+	}
+	if len(args) > 0 && args[0] == "ac" {
+		return acCommand(args[1:])
 	}
 	fs := flag.NewFlagSet("simple-sc", flag.ContinueOnError)
 	cfgPath := fs.String("config", os.Getenv("SSCAC_CONFIG"), "configuration file (TOML), optional")
@@ -112,14 +116,34 @@ func serve(cfg config.SC, env *app.Env, caDir string) error {
 	defer stop()
 	errc := make(chan error, 2)
 
+	tlsCfg, err := serverTLS(cfg.BSSCI, caDir)
+	if err != nil {
+		return err
+	}
+	var ac *scaci.Server
+	if len(env.Schemas.Versions(scaci.Interface)) > 0 {
+		policy, err := version.ParsePolicy(cfg.SCACI.Policy)
+		if err != nil {
+			return err
+		}
+		mode := engine.Strict
+		if cfg.SCACI.Mode == "lenient" {
+			mode = engine.Lenient
+		}
+		ac, err = scaci.New(scaci.Config{
+			SCEui: env.EUI, Schemas: env.Schemas, Registry: reg, Log: log.With("iface", "scaci"), Trace: sink, TLS: tlsCfg,
+			Policy: policy, Mode: mode, ResponseTimeout: cfg.SCACI.ResponseTimeout, IdlePing: cfg.SCACI.IdlePing,
+			BufferAge: cfg.SCACI.BufferAge, BufferMax: cfg.SCACI.BufferMax, Name: "simple-sc", SwVersion: buildinfo.Version,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
 	var bs *bssci.Server
 	if len(env.Schemas.Versions(bssci.Interface)) == 0 {
 		log.Warn("no BSSCI schema files, the BSSCI port stays closed", "schema_dir", cfg.SchemaDir)
 	} else {
-		tlsCfg, err := serverTLS(cfg.BSSCI, caDir)
-		if err != nil {
-			return err
-		}
 		policy, err := version.ParsePolicy(cfg.BSSCI.Policy)
 		if err != nil {
 			return err
@@ -132,7 +156,7 @@ func serve(cfg config.SC, env *app.Env, caDir string) error {
 			SCEui: env.EUI, Schemas: env.Schemas, Registry: reg, Log: log.With("iface", "bssci"), Trace: sink, TLS: tlsCfg,
 			Policy: policy, Mode: mode, Unknown: cfg.BSSCI.UnknownBaseStations, ResponseTimeout: cfg.BSSCI.ResponseTimeout,
 			IdlePing: cfg.BSSCI.IdlePing, StatusInterval: cfg.BSSCI.StatusInterval, DedupWindow: cfg.BSSCI.DedupWindow,
-			Name: "simple-sc", SwVersion: buildinfo.Version,
+			Name: "simple-sc", SwVersion: buildinfo.Version, Events: events(ac),
 		})
 		if err != nil {
 			return err
@@ -144,8 +168,17 @@ func serve(cfg config.SC, env *app.Env, caDir string) error {
 		log.Info("BSSCI listening", "addr", cfg.BSSCI.Listen, "versions", env.Schemas.Versions(bssci.Interface), "unknown_base_stations", cfg.BSSCI.UnknownBaseStations)
 		go func() { errc <- bs.Serve(ctx, tls.NewListener(ln, tlsCfg)) }()
 	}
+	if ac != nil {
+		ac.SetBSSCI(bs)
+		ln, err := net.Listen("tcp", cfg.SCACI.Listen)
+		if err != nil {
+			return fmt.Errorf("SCACI listen: %w", err)
+		}
+		log.Info("SCACI listening", "addr", cfg.SCACI.Listen, "versions", env.Schemas.Versions(scaci.Interface))
+		go func() { errc <- ac.Serve(ctx, tls.NewListener(ln, tlsCfg)) }()
+	}
 	if cfg.Admin.Listen != "" && cfg.Admin.Listen != "-" {
-		srv := &http.Server{Addr: cfg.Admin.Listen, Handler: (&api.API{Reg: reg, BSSCI: bs, SCEui: env.EUI}).Handler(), ReadHeaderTimeout: 5 * time.Second}
+		srv := &http.Server{Addr: cfg.Admin.Listen, Handler: (&api.API{Reg: reg, BSSCI: bs, SCACI: ac, SCEui: env.EUI}).Handler(), ReadHeaderTimeout: 5 * time.Second}
 		go func() { <-ctx.Done(); _ = srv.Close() }()
 		go func() {
 			log.Info("admin REST listening", "addr", cfg.Admin.Listen)
@@ -188,6 +221,76 @@ func serverTLS(o config.BSSCIOptions, caDir string) (*tls.Config, error) {
 		return nil, err
 	}
 	return &tls.Config{Certificates: []tls.Certificate{pair}, ClientCAs: pool, ClientAuth: tls.RequireAndVerifyClientCert, MinVersion: tls.VersionTLS12}, nil
+}
+
+// events passes BSSCI events to the SCACI side, or nowhere without SCACI.
+func events(ac *scaci.Server) bssci.Events {
+	if ac == nil {
+		return nil
+	}
+	return ac
+}
+
+func acCommand(args []string) error {
+	if len(args) == 0 || args[0] != "add" {
+		return fmt.Errorf("usage: simple-sc ac add -eui EUI -address HOST:PORT [-csr FILE] [-name NAME] [-out bundle.json]")
+	}
+	fs := flag.NewFlagSet("ac add", flag.ContinueOnError)
+	cfgPath := fs.String("config", os.Getenv("SSCAC_CONFIG"), "configuration file (TOML), optional")
+	eui := fs.String("eui", "", "EUI-64 of the Application Center")
+	csrFile := fs.String("csr", "", "certificate request from 'simple-ac sc request'; without it the key is created here (lab only)")
+	address := fs.String("address", "", "host:port where the Application Center reaches SCACI, e.g. sc.example.org:17107")
+	serverName := fs.String("server-name", "", "name in the server certificate, default the host of -address")
+	scName := fs.String("sc-name", "sc", "name of this Service Center on the Application Center")
+	acName := fs.String("name", "", "name of the Application Center, for your overview")
+	out := fs.String("out", "", "bundle file, default <data_dir>/ac/<eui>.json")
+	if err := fs.Parse(args[1:]); err != nil {
+		return err
+	}
+	if *eui == "" || *address == "" {
+		return fmt.Errorf("-eui and -address are required")
+	}
+	cfg, err := loadConfig(*cfgPath)
+	if err != nil {
+		return err
+	}
+	env, err := app.Start("sc", &cfg.Common)
+	if err != nil {
+		return err
+	}
+	reg, err := registry.Open(filepath.Join(cfg.DataDir, "sc.sqlite"))
+	if err != nil {
+		return err
+	}
+	defer reg.Close()
+	ca, _, err := labca.Init(filepath.Join(cfg.DataDir, "ca"), "simple-sc lab CA "+env.EUI.String())
+	if err != nil {
+		return err
+	}
+	var csr []byte
+	if *csrFile != "" {
+		if csr, err = os.ReadFile(*csrFile); err != nil {
+			return err
+		}
+	}
+	b, err := scaci.Enroll(reg, ca, env.EUI, scaci.EnrollRequest{Name: *scName, ACEui: *eui, ACName: *acName, Address: *address, ServerName: *serverName, CSR: csr})
+	if err != nil {
+		return err
+	}
+	file := *out
+	if file == "" {
+		file = filepath.Join(cfg.DataDir, "ac", *eui+".json")
+	}
+	if err := b.Write(file); err != nil {
+		return err
+	}
+	fmt.Printf("Application Center %s registered.\nbundle %s\n", *eui, file)
+	if b.Key != "" {
+		fmt.Println("The bundle contains the private key of the Application Center (no -csr given).")
+		fmt.Println("Fine in a lab, otherwise use 'simple-ac sc request' and -csr. Keep the file private.")
+	}
+	fmt.Println("On the Application Center: simple-ac sc add <bundle>")
+	return nil
 }
 
 func loadConfig(path string) (config.SC, error) {

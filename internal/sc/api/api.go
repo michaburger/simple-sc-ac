@@ -14,12 +14,14 @@ import (
 	"github.com/michaburger/simple-sc-ac/internal/common/idt"
 	"github.com/michaburger/simple-sc-ac/internal/sc/bssci"
 	"github.com/michaburger/simple-sc-ac/internal/sc/registry"
+	"github.com/michaburger/simple-sc-ac/internal/sc/scaci"
 )
 
 // API serves the admin endpoints.
 type API struct {
 	Reg   *registry.Registry
 	BSSCI *bssci.Server // nil when no BSSCI schema is loaded
+	SCACI *scaci.Server // nil when no SCACI schema is loaded
 	SCEui idt.EUI64
 }
 
@@ -47,6 +49,10 @@ func (a *API) Handler() http.Handler {
 	m.HandleFunc("GET /api/endpoints/{eui}", a.getEP)
 	m.HandleFunc("DELETE /api/endpoints/{eui}", a.deleteEP)
 	m.HandleFunc("GET /api/uplinks", a.uplinks)
+	m.HandleFunc("GET /api/applicationcenters", a.listAC)
+	m.HandleFunc("POST /api/applicationcenters/{eui}/enable", a.setAC("enabled"))
+	m.HandleFunc("POST /api/applicationcenters/{eui}/disable", a.setAC("disabled"))
+	m.HandleFunc("GET /api/usage", a.usage)
 	return m
 }
 
@@ -76,8 +82,12 @@ func (a *API) status(w http.ResponseWriter, _ *http.Request) {
 			att++
 		}
 	}
+	var acs []string
+	if a.SCACI != nil {
+		acs = a.SCACI.Connected()
+	}
 	reply(w, 200, map[string]any{"program": "simple-sc", "version": buildinfo.Version, "scEui": a.SCEui.String(),
-		"bssci": a.BSSCI != nil, "connected": conn, "endPoints": len(eps), "attached": att})
+		"bssci": a.BSSCI != nil, "connected": conn, "applicationCenters": acs, "endPoints": len(eps), "attached": att})
 }
 
 func (a *API) listBS(w http.ResponseWriter, _ *http.Request) {
@@ -190,4 +200,54 @@ func (a *API) uplinks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, 200, l)
+}
+
+func (a *API) listAC(w http.ResponseWriter, _ *http.Request) {
+	l, err := a.Reg.ApplicationCenters()
+	if err != nil {
+		fail(w, 500, err)
+		return
+	}
+	reply(w, 200, l)
+}
+
+func (a *API) setAC(state string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		eui := r.PathValue("eui")
+		if err := a.Reg.SetApplicationCenterState(eui, state); err != nil {
+			code := 500
+			if errors.Is(err, registry.ErrNotFound) {
+				code = 404
+			}
+			fail(w, code, err)
+			return
+		}
+		if state == "disabled" && a.SCACI != nil {
+			a.SCACI.CloseSession(eui)
+		}
+		ac, _ := a.Reg.ApplicationCenter(eui)
+		reply(w, 200, ac)
+	}
+}
+
+func (a *API) usage(w http.ResponseWriter, r *http.Request) {
+	days, _ := strconv.Atoi(r.URL.Query().Get("days"))
+	if days <= 0 || days > 366 {
+		days = 7
+	}
+	acs, err := a.Reg.ApplicationCenters()
+	if err != nil {
+		fail(w, 500, err)
+		return
+	}
+	out := []registry.Usage{}
+	for _, ac := range acs {
+		u, err := a.Reg.UsageOf(ac.EUI, days)
+		if err != nil {
+			fail(w, 500, err)
+			return
+		}
+		out = append(out, u...)
+	}
+	reply(w, 200, out)
 }

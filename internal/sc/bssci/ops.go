@@ -88,7 +88,8 @@ func (sess *Session) onAttach(msg map[string]any) (map[string]any, *engine.OpErr
 	id, _ := schema.AsInt64(msg["opId"])
 	sess.mu.Lock()
 	link.EUI = eui
-	sess.pending[id] = pendingAttach{ep: link, attachCnt: int64(cnt), snKey: strings.ToUpper(hex.EncodeToString(sk[:])), shAddr: sh}
+	sess.pending[id] = pendingAttach{ep: link, attachCnt: int64(cnt), snKey: strings.ToUpper(hex.EncodeToString(sk[:])), shAddr: sh,
+		nonce: nonce, sign: sign, rec: reception(sess.BSEui, msg)}
 	sess.mu.Unlock()
 	op := sess.sch.Operations["att"]
 	return sess.sch.Fit(op, schema.Response, fields), nil
@@ -132,7 +133,22 @@ func (s *Server) commitAttach(sess *Session, pa pendingAttach) {
 	sess.log.Info("end-point attached", "epEui", eui, "shAddr", idt.ShortAddr(pa.shAddr).String(), "attachCnt", pa.attachCnt)
 	if ep, err := s.cfg.Registry.EndPoint(eui); err == nil {
 		s.propagate(ep, sess.BSEui)
+		if s.cfg.Events != nil {
+			s.cfg.Events.Attached(ep, AttachInfo{BSEui: sess.BSEui, AttachCnt: pa.attachCnt, Nonce: pa.nonce, Sign: pa.sign, ShAddr: pa.shAddr, Reception: pa.rec})
+		}
 	}
+}
+
+// reception collects the reception fields of a message from a base station.
+func reception(bs string, msg map[string]any) registry.Reception {
+	rx, _ := schema.AsInt64(msg["rxTime"])
+	rec := registry.Reception{BSEui: bs, RxNs: rx, SNR: num(msg["snr"]), RSSI: num(msg["rssi"]), Extra: map[string]any{}}
+	for _, k := range []string{"eqSnr", "profile", "mode", "rxDuration", "subpackets", "snrSymMin", "snrSymMinIdx", "frequency", "nSubPck", "nSubPckLowSnr", "nSubPckLowRssi", "pattNum"} {
+		if v, ok := msg[k]; ok {
+			rec.Extra[k] = v
+		}
+	}
+	return rec
 }
 
 // onDetach answers a detach request. How the SC computes the signature for the end-point
@@ -145,8 +161,14 @@ func (sess *Session) onDetach(msg map[string]any) (map[string]any, *engine.OpErr
 		return nil, engine.Errorf(engine.EOPNOTSUPP, "End Point unknown")
 	}
 	sess.log.Warn("detach: response signature not defined in the specification, sending zeros", "epEui", eui)
+	ep, _ := s.cfg.Registry.EndPoint(eui)
 	if err := s.cfg.Registry.Detached(eui); err != nil {
 		return nil, engine.Errorf(engine.EINVAL, "%v", err)
+	}
+	if s.cfg.Events != nil {
+		pc, _ := schema.AsInt64(msg["packetCnt"])
+		sign, _ := schema.AsBytes(msg["sign"])
+		s.cfg.Events.Detached(eui, DetachInfo{BSEui: sess.BSEui, AttachCnt: ep.AttachCnt, PacketCnt: pc, Sign: sign, Reception: reception(sess.BSEui, msg)})
 	}
 	sess.log.Info("end-point detached", "epEui", eui)
 	go s.propagateDetach(eui, sess.BSEui)
@@ -168,16 +190,11 @@ func (sess *Session) onUplink(msg map[string]any) (map[string]any, *engine.OpErr
 		sess.log.Info("uplink of an unknown or detached end-point dropped", "epEui", eui, "packetCnt", cnt)
 		return map[string]any{}, nil
 	}
-	rx, _ := schema.AsInt64(msg["rxTime"])
 	data, _ := schema.AsBytes(msg["userData"])
 	format, _ := schema.AsInt64(msg["format"])
-	rec := registry.Reception{BSEui: sess.BSEui, RxNs: rx, SNR: num(msg["snr"]), RSSI: num(msg["rssi"]), Extra: map[string]any{}}
-	for _, k := range []string{"eqSnr", "profile", "mode", "rxDuration", "subpackets", "snrSymMin", "frequency"} {
-		if v, ok := msg[k]; ok {
-			rec.Extra[k] = v
-		}
-	}
-	if !s.dedup.add(eui, int64(cnt), ep.LastPacketCnt, rec, data, format) {
+	rec := reception(sess.BSEui, msg)
+	flags := [3]bool{flag(msg, "dlOpen"), flag(msg, "responseExp"), flag(msg, "dlAck")}
+	if !s.dedup.add(eui, int64(cnt), ep.LastPacketCnt, rec, data, format, flags) {
 		sess.log.Info("uplink with an old packet counter dropped", "epEui", eui, "packetCnt", cnt, "last", ep.LastPacketCnt)
 	}
 	return map[string]any{}, nil
@@ -197,10 +214,12 @@ func num(v any) float64 {
 }
 
 func (s *Server) storeUplink(u registry.Uplink) {
-	if _, err := s.cfg.Registry.StoreUplink(u); err != nil {
+	id, err := s.cfg.Registry.StoreUplink(u)
+	if err != nil {
 		s.cfg.Log.Error("uplink not stored", "epEui", u.EPEui, "err", err)
 		return
 	}
+	u.ID = id
 	bss := make([]string, len(u.Receptions))
 	for i, r := range u.Receptions {
 		bss[i] = r.BSEui
@@ -208,6 +227,10 @@ func (s *Server) storeUplink(u registry.Uplink) {
 	s.cfg.Log.Info("uplink", "epEui", u.EPEui, "packetCnt", u.PacketCnt, "bytes", len(u.Payload)/2, "baseStations", bss)
 	if ep, err := s.cfg.Registry.EndPoint(u.EPEui); err == nil {
 		_ = s.cfg.Registry.Count(ep.OwnerAC, "uplinks", 1)
+		_ = s.cfg.Registry.Active(ep.OwnerAC, u.EPEui)
+	}
+	if s.cfg.Events != nil {
+		s.cfg.Events.Uplink(u)
 	}
 }
 
@@ -301,20 +324,63 @@ func (s *Server) pollStatus(ctx context.Context, sess *Session) {
 }
 
 // dedup merges receptions of the same uplink from several base stations within a window.
+// Windows are closed in the order they were opened, by one goroutine, so that uplinks are
+// passed on in the order they arrived.
 type dedup struct {
 	window time.Duration
 	flush  func(registry.Uplink)
 	mu     sync.Mutex
 	open   map[string]*registry.Uplink
+	order  []dedupEntry
+	wake   chan struct{}
+}
+
+type dedupEntry struct {
+	key      string
+	deadline time.Time
 }
 
 func newDedup(window time.Duration, flush func(registry.Uplink)) *dedup {
-	return &dedup{window: window, flush: flush, open: map[string]*registry.Uplink{}}
+	d := &dedup{window: window, flush: flush, open: map[string]*registry.Uplink{}, wake: make(chan struct{}, 1)}
+	go d.loop()
+	return d
+}
+
+func (d *dedup) loop() {
+	for {
+		d.mu.Lock()
+		var wait time.Duration = time.Hour
+		if len(d.order) > 0 {
+			wait = time.Until(d.order[0].deadline)
+		}
+		d.mu.Unlock()
+		if wait > 0 {
+			select {
+			case <-time.After(wait):
+			case <-d.wake:
+				continue
+			}
+		}
+		d.mu.Lock()
+		var due []registry.Uplink
+		for len(d.order) > 0 && !time.Now().Before(d.order[0].deadline) {
+			e := d.order[0]
+			d.order = d.order[1:]
+			if u, ok := d.open[e.key]; ok {
+				due = append(due, *u)
+				delete(d.open, e.key)
+			}
+		}
+		d.mu.Unlock()
+		for _, u := range due {
+			d.flush(u)
+		}
+	}
 }
 
 // add returns false when the uplink is older than the last stored one and not part of an
 // open window.
-func (d *dedup) add(ep string, cnt, last int64, rec registry.Reception, data []byte, format int64) bool {
+func (d *dedup) add(ep string, cnt, last int64, rec registry.Reception, data []byte, format int64, flags [3]bool) bool {
 	key := ep + "/" + strconv.FormatInt(cnt, 10)
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -325,13 +391,12 @@ func (d *dedup) add(ep string, cnt, last int64, rec registry.Reception, data []b
 	if cnt <= last {
 		return false
 	}
-	u := &registry.Uplink{EPEui: ep, PacketCnt: cnt, RxNs: rec.RxNs, Format: format, Payload: strings.ToUpper(hex.EncodeToString(data)), Receptions: []registry.Reception{rec}}
-	d.open[key] = u
-	time.AfterFunc(d.window, func() {
-		d.mu.Lock()
-		delete(d.open, key)
-		d.mu.Unlock()
-		d.flush(*u)
-	})
+	d.open[key] = &registry.Uplink{EPEui: ep, PacketCnt: cnt, RxNs: rec.RxNs, Format: format, Payload: strings.ToUpper(hex.EncodeToString(data)), Receptions: []registry.Reception{rec},
+		DlOpen: flags[0], ResponseExp: flags[1], DlAck: flags[2]}
+	d.order = append(d.order, dedupEntry{key: key, deadline: time.Now().Add(d.window)})
+	select {
+	case d.wake <- struct{}{}:
+	default:
+	}
 	return true
 }

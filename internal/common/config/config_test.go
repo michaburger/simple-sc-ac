@@ -56,15 +56,19 @@ func TestFinish(t *testing.T) {
 	}
 }
 
-func TestACServiceCentersFromFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "ac.toml")
-	_ = os.WriteFile(path, []byte("[[service_center]]\nname = \"lab\"\naddress = \"sc.local:17107\"\n"), 0o600)
+func TestACDefaults(t *testing.T) {
 	cfg := DefaultAC()
-	if err := Load(&cfg, path, nil); err != nil {
+	if err := Load(&cfg, "", []string{"SSCAC_ADMIN_LISTEN=127.0.0.1:9999", "SSCAC_IDLE_PING=1m"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.ServiceCenters) != 1 || cfg.ServiceCenters[0].Address != "sc.local:17107" {
-		t.Fatalf("%+v", cfg.ServiceCenters)
+	if cfg.Admin.Listen != "127.0.0.1:9999" || cfg.IdlePing != time.Minute {
+		t.Fatalf("%+v", cfg)
+	}
+	sc := DefaultSC()
+	if err := Load(&sc, "", []string{"SSCAC_SCACI_BUFFER_MAX=5", "SSCAC_SCACI_LISTEN=:1"}); err != nil {
+		t.Fatal(err)
+	}
+	if sc.SCACI.BufferMax != 5 || sc.SCACI.Listen != ":1" || sc.SCACI.BufferAge != 24*time.Hour {
+		t.Fatalf("%+v", sc.SCACI)
 	}
 }

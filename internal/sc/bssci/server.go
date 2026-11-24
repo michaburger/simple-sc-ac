@@ -32,8 +32,35 @@ import (
 // Interface name of BSSCI in the schema files.
 const Interface = "bssci"
 
+// Events lets another part of simple-sc (the SCACI side) follow what happens on BSSCI.
+type Events interface {
+	Uplink(u registry.Uplink)
+	Attached(ep registry.EndPoint, a AttachInfo)
+	Detached(epEui string, d DetachInfo)
+}
+
+// AttachInfo describes an accepted over-the-air attach.
+type AttachInfo struct {
+	BSEui     string
+	AttachCnt int64
+	Nonce     []byte
+	Sign      []byte
+	ShAddr    int
+	Reception registry.Reception
+}
+
+// DetachInfo describes a detach.
+type DetachInfo struct {
+	BSEui     string
+	AttachCnt int64
+	PacketCnt int64
+	Sign      []byte
+	Reception registry.Reception
+}
+
 // Config of the server.
 type Config struct {
+	Events          Events // optional
 	SCEui           idt.EUI64
 	Schemas         *schema.Set
 	Registry        *registry.Registry
@@ -134,6 +161,9 @@ type pendingAttach struct {
 	attachCnt int64
 	snKey     string
 	shAddr    int
+	nonce     []byte
+	sign      []byte
+	rec       registry.Reception
 }
 
 // replay is a connection whose first frame was already read: it serves those bytes first.

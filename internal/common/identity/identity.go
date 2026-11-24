@@ -4,7 +4,7 @@
 // locally administered EUI-64 derived from hardware and stored. The derived value starts
 // with octet 0x02 (universal/local bit set, individual, the administratively assigned
 // quadrant of IEEE 802c), the other 7 octets are the first 7 bytes of SHA-256 over the
-// role and a hardware identifier. It is stable on the same host, differs between SC and
+// role, a hardware identifier and the data folder. It is stable on the same host, differs between SC and
 // AC, and cannot collide with an EUI-64 assigned by the IEEE. The classic EUI-48 to EUI-64
 // mapping (inserting FF-FE) is not used, the IEEE Registration Authority deprecates it.
 package identity
@@ -83,7 +83,8 @@ func Resolve(role, configured, dataDir string) (Result, error) {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Result{}, err
 	}
-	e, src, err := derive(role)
+	abs, _ := filepath.Abs(dataDir)
+	e, src, err := derive(role, abs)
 	if err != nil {
 		return Result{}, err
 	}
@@ -96,7 +97,9 @@ func Resolve(role, configured, dataDir string) (Result, error) {
 	return Result{EUI: e, Source: src}, nil
 }
 
-func derive(role string) (idt.EUI64, Source, error) {
+// derive uses the hardware identifier, the role and the data folder, so that two
+// installations on the same computer get different EUIs.
+func derive(role, dataDir string) (idt.EUI64, Source, error) {
 	macs, balena := Hardware()
 	var input string
 	var src Source
@@ -121,7 +124,7 @@ func derive(role string) (idt.EUI64, Source, error) {
 		}
 		input, src = fmt.Sprintf("random:%x", r), FromRandom
 	}
-	return fromInput(role, input), src, nil
+	return fromInput(role, input+"|"+dataDir), src, nil
 }
 
 func fromInput(role, input string) idt.EUI64 {

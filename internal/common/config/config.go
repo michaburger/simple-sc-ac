@@ -58,25 +58,29 @@ type Admin struct {
 	Listen string `toml:"listen"`
 }
 
+// SCACIOptions are the Application Center settings of simple-sc.
+type SCACIOptions struct {
+	Listener
+	// Uplinks for an AC that is not connected are kept this long, and at most this many.
+	BufferAge time.Duration `toml:"buffer_age"`
+	BufferMax int           `toml:"buffer_max"`
+}
+
 // SC is the configuration of simple-sc.
 type SC struct {
 	Common
 	BSSCI BSSCIOptions `toml:"bssci"`
-	SCACI Listener     `toml:"scaci"`
+	SCACI SCACIOptions `toml:"scaci"`
 	Admin Admin        `toml:"admin"`
 }
 
-// ServiceCenter is one SC that simple-ac connects to.
-type ServiceCenter struct {
-	Name    string `toml:"name"`
-	Address string `toml:"address"`
-}
-
-// AC is the configuration of simple-ac.
+// AC is the configuration of simple-ac. The Service Centers come from the enrollment
+// bundles in <data_dir>/sc, see "simple-ac sc add".
 type AC struct {
 	Common
-	ResponseTimeout time.Duration   `toml:"response_timeout"`
-	ServiceCenters  []ServiceCenter `toml:"service_center"`
+	ResponseTimeout time.Duration `toml:"response_timeout"`
+	IdlePing        time.Duration `toml:"idle_ping"`
+	Admin           Admin         `toml:"admin"`
 }
 
 // DefaultDataDir is /data inside a container (marked by /.dockerenv or the balena
@@ -101,13 +105,16 @@ func DefaultSC() SC {
 			UnknownBaseStations: "pending", DedupWindow: 500 * time.Millisecond, StatusInterval: 60 * time.Second,
 		},
 		Admin: Admin{Listen: "127.0.0.1:8107"},
-		SCACI: Listener{Listen: ":17107", Policy: "follow", Mode: "strict", ResponseTimeout: 5 * time.Second, IdlePing: 10 * time.Second},
+		SCACI: SCACIOptions{
+			Listener:  Listener{Listen: ":17107", Policy: "follow", Mode: "strict", ResponseTimeout: 5 * time.Second, IdlePing: 10 * time.Second},
+			BufferAge: 24 * time.Hour, BufferMax: 10000,
+		},
 	}
 }
 
 // DefaultAC returns the defaults of simple-ac.
 func DefaultAC() AC {
-	return AC{Common: Common{LogLevel: "info"}, ResponseTimeout: 5 * time.Second}
+	return AC{Common: Common{LogLevel: "info"}, ResponseTimeout: 5 * time.Second, IdlePing: 10 * time.Second, Admin: Admin{Listen: "127.0.0.1:8108"}}
 }
 
 // Load fills cfg (holding the defaults) from the file at path, if path is not empty, and

@@ -290,13 +290,22 @@ type Reception struct {
 
 // Uplink is one deduplicated uplink.
 type Uplink struct {
-	ID         int64       `json:"id"`
-	EPEui      string      `json:"epEui"`
-	PacketCnt  int64       `json:"packetCnt"`
-	RxNs       int64       `json:"rxTime"`
-	Format     int64       `json:"format"`
-	Payload    string      `json:"userData"` // upper case hex
-	Receptions []Reception `json:"receptions"`
+	ID          int64       `json:"id"`
+	EPEui       string      `json:"epEui"`
+	PacketCnt   int64       `json:"packetCnt"`
+	RxNs        int64       `json:"rxTime"`
+	Format      int64       `json:"format"`
+	Payload     string      `json:"userData"` // upper case hex
+	Receptions  []Reception `json:"receptions"`
+	DlOpen      bool        `json:"dlOpen"`
+	ResponseExp bool        `json:"responseExp"`
+	DlAck       bool        `json:"dlAck"`
+}
+
+type uplinkMeta struct {
+	DlOpen      bool `json:"dlOpen"`
+	ResponseExp bool `json:"responseExp"`
+	DlAck       bool `json:"dlAck"`
 }
 
 // StoreUplink stores a deduplicated uplink and the receptions, and advances the packet
@@ -311,8 +320,9 @@ func (r *Registry) StoreUplink(u Uplink) (int64, error) {
 		return 0, err
 	}
 	defer tx.Rollback()
-	res, err := tx.Exec(`INSERT INTO uplink (ep_eui, packet_cnt, rx_ns, format, payload, receptions) VALUES (?, ?, ?, ?, ?, ?)`,
-		u.EPEui, u.PacketCnt, u.RxNs, u.Format, u.Payload, string(recs))
+	meta, _ := json.Marshal(uplinkMeta{u.DlOpen, u.ResponseExp, u.DlAck})
+	res, err := tx.Exec(`INSERT INTO uplink (ep_eui, packet_cnt, rx_ns, format, payload, receptions, meta) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		u.EPEui, u.PacketCnt, u.RxNs, u.Format, u.Payload, string(recs), string(meta))
 	if err != nil {
 		return 0, err
 	}
@@ -331,7 +341,7 @@ func (r *Registry) StoreUplink(u Uplink) (int64, error) {
 
 // Uplinks returns the newest uplinks, optionally of one end-point.
 func (r *Registry) Uplinks(ep string, limit int) ([]Uplink, error) {
-	q, args := `SELECT id, ep_eui, packet_cnt, rx_ns, format, payload, receptions FROM uplink`, []any{}
+	q, args := `SELECT id, ep_eui, packet_cnt, rx_ns, format, payload, receptions, meta FROM uplink`, []any{}
 	if ep != "" {
 		q += ` WHERE ep_eui = ?`
 		args = append(args, ep)
@@ -345,13 +355,9 @@ func (r *Registry) Uplinks(ep string, limit int) ([]Uplink, error) {
 	defer rows.Close()
 	var out []Uplink
 	for rows.Next() {
-		var u Uplink
-		var recs string
-		if err := rows.Scan(&u.ID, &u.EPEui, &u.PacketCnt, &u.RxNs, &u.Format, &u.Payload, &recs); err != nil {
+		u, err := scanUplink(rows)
+		if err != nil {
 			return nil, err
-		}
-		if err := json.Unmarshal([]byte(recs), &u.Receptions); err != nil {
-			return nil, fmt.Errorf("registry: uplink %d: %w", u.ID, err)
 		}
 		out = append(out, u)
 	}
@@ -363,4 +369,19 @@ func (r *Registry) Count(acEui, name string, delta int64) error {
 	day := time.Now().UTC().Format("2006-01-02")
 	_, err := r.db.Exec(`INSERT INTO usage_counter VALUES (?, ?, ?, ?) ON CONFLICT (ac_eui, day, name) DO UPDATE SET value = value + excluded.value`, acEui, day, name, delta)
 	return err
+}
+
+func scanUplink(s scanner) (Uplink, error) {
+	var u Uplink
+	var recs, meta string
+	if err := s.Scan(&u.ID, &u.EPEui, &u.PacketCnt, &u.RxNs, &u.Format, &u.Payload, &recs, &meta); err != nil {
+		return u, err
+	}
+	if err := json.Unmarshal([]byte(recs), &u.Receptions); err != nil {
+		return u, fmt.Errorf("registry: uplink %d: %w", u.ID, err)
+	}
+	var m uplinkMeta
+	_ = json.Unmarshal([]byte(meta), &m)
+	u.DlOpen, u.ResponseExp, u.DlAck = m.DlOpen, m.ResponseExp, m.DlAck
+	return u, nil
 }

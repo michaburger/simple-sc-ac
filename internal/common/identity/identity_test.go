@@ -2,6 +2,7 @@ package identity
 
 import (
 	"net"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -56,8 +57,13 @@ func TestDerivedIsLocalStableAndPerRole(t *testing.T) {
 		t.Fatalf("not stored: %+v", again)
 	}
 	// The universally administered MAC is used, not the virtual container MAC.
-	if fromInput("sc", "dc:a6:32:01:02:03") != sc.EUI {
+	abs, _ := filepath.Abs(dir)
+	if fromInput("sc", "dc:a6:32:01:02:03|"+abs) != sc.EUI {
 		t.Fatal("wrong MAC used")
+	}
+	other, _ := Resolve("sc", "", t.TempDir())
+	if other.EUI == sc.EUI {
+		t.Fatal("two installations on one computer got the same EUI")
 	}
 }
 

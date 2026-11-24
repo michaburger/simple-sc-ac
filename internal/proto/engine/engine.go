@@ -168,8 +168,11 @@ func (e *Engine) Run(ctx context.Context, rw io.ReadWriteCloser) error {
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go func() {
-		<-ctx.Done()
+	go func() { // Close and the end of ctx both close the connection, which ends the read loop
+		select {
+		case <-ctx.Done():
+		case <-e.done:
+		}
 		_ = rw.Close()
 	}()
 	if e.cfg.IdlePing > 0 {
