@@ -23,7 +23,7 @@ const EnvPrefix = "SSCAC"
 type Common struct {
 	DataDir   string `toml:"data_dir"`   // all state, default /data in containers, ./data otherwise
 	SchemaDir string `toml:"schema_dir"` // interface schema files, default <data_dir>/schemas
-	EUI       string `toml:"eui"`        // own EUI-64, empty: derive (D-29)
+	EUI       string `toml:"eui"`        // own EUI-64, empty: derive
 	LogLevel  string `toml:"log_level"`  // debug, info, warn, error
 	TraceFile string `toml:"trace_file"` // JSON lines, empty: <data_dir>/trace/trace.jsonl, "-" off
 }
@@ -96,7 +96,7 @@ func DefaultDataDir() string {
 }
 
 // DefaultSC returns the defaults of simple-sc. Ports 16107 and 17107 as the Fraunhofer
-// Service Center (D-23).
+// Service Center.
 func DefaultSC() SC {
 	return SC{
 		Common: Common{LogLevel: "info"},

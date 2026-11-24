@@ -147,7 +147,7 @@ func (ca *CA) Issue(outDir string, r Request) (string, error) {
 }
 
 // Fingerprint is the SHA-256 of the DER encoded public key, upper case hex. It is what a
-// peer registry stores (D-07).
+// peer registry stores.
 func Fingerprint(cert *x509.Certificate) string {
 	sum := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
 	return strings.ToUpper(hex.EncodeToString(sum[:]))

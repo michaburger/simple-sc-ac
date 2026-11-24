@@ -364,7 +364,7 @@ func (r *Registry) Uplinks(ep string, limit int) ([]Uplink, error) {
 	return out, rows.Err()
 }
 
-// Count adds delta to a usage counter of today (G-36).
+// Count adds delta to a usage counter of today.
 func (r *Registry) Count(acEui, name string, delta int64) error {
 	day := time.Now().UTC().Format("2006-01-02")
 	_, err := r.db.Exec(`INSERT INTO usage_counter VALUES (?, ?, ?, ?) ON CONFLICT (ac_eui, day, name) DO UPDATE SET value = value + excluded.value`, acEui, day, name, delta)

@@ -233,7 +233,7 @@ func (s *Server) handle(ctx context.Context, raw net.Conn) {
 	if conErr == nil {
 		sess.Bidi, _ = con["bidi"].(bool)
 		sess.Class, _ = con["bsClass"].(string)
-		if sess.Class == "" { // BSSCI 1.0 has no class (D-26)
+		if sess.Class == "" { // BSSCI 1.0 has no class
 			sess.Class = "z"
 			if sess.Bidi {
 				sess.Class = "a"

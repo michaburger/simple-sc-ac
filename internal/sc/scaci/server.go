@@ -365,7 +365,7 @@ func (s *Server) established(ctx context.Context, sess *session) {
 func bool2(m map[string]any, k string) bool { b, _ := m[k].(bool); return b }
 
 // onRegister takes an end-point registration. An end-point belongs to the AC that
-// registered it first (D-08), another AC gets EPERM.
+// registered it first, another AC gets EPERM.
 func (sess *session) onRegister(msg map[string]any) (map[string]any, *engine.OpError) {
 	s := sess.srv
 	u, _ := schema.AsUint64(msg["epEui"])
