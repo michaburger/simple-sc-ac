@@ -12,6 +12,7 @@ import (
 
 	"github.com/michaburger/simple-sc-ac/internal/common/buildinfo"
 	"github.com/michaburger/simple-sc-ac/internal/common/idt"
+	"github.com/michaburger/simple-sc-ac/internal/common/labca"
 	"github.com/michaburger/simple-sc-ac/internal/sc/bssci"
 	"github.com/michaburger/simple-sc-ac/internal/sc/registry"
 	"github.com/michaburger/simple-sc-ac/internal/sc/scaci"
@@ -22,6 +23,7 @@ type API struct {
 	Reg   *registry.Registry
 	BSSCI *bssci.Server // nil when no BSSCI schema is loaded
 	SCACI *scaci.Server // nil when no SCACI schema is loaded
+	CA    *labca.CA     // signs the certificates of Application Centers
 	SCEui idt.EUI64
 }
 
@@ -50,6 +52,7 @@ func (a *API) Handler() http.Handler {
 	m.HandleFunc("DELETE /api/endpoints/{eui}", a.deleteEP)
 	m.HandleFunc("GET /api/uplinks", a.uplinks)
 	m.HandleFunc("GET /api/applicationcenters", a.listAC)
+	m.HandleFunc("POST /api/applicationcenters", a.addAC)
 	m.HandleFunc("POST /api/applicationcenters/{eui}/enable", a.setAC("enabled"))
 	m.HandleFunc("POST /api/applicationcenters/{eui}/disable", a.setAC("disabled"))
 	m.HandleFunc("GET /api/usage", a.usage)
@@ -250,4 +253,44 @@ func (a *API) usage(w http.ResponseWriter, r *http.Request) {
 		out = append(out, u...)
 	}
 	reply(w, 200, out)
+}
+
+// ACRequest is the body of POST /api/applicationcenters.
+type ACRequest struct {
+	ACEui      string `json:"acEui"`
+	Name       string `json:"name,omitempty"`
+	SCName     string `json:"scName,omitempty"`
+	Address    string `json:"address"`
+	ServerName string `json:"serverName,omitempty"`
+	CSR        string `json:"csr,omitempty"`
+}
+
+// addAC registers an Application Center and returns its bundle. Without a csr the key is
+// created here and is part of the bundle (lab shortcut).
+func (a *API) addAC(w http.ResponseWriter, r *http.Request) {
+	if a.CA == nil {
+		fail(w, 500, errors.New("no certificate authority"))
+		return
+	}
+	var q ACRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&q); err != nil {
+		fail(w, 400, err)
+		return
+	}
+	if q.SCName == "" {
+		q.SCName = "sc"
+	}
+	if q.Address == "" {
+		fail(w, 400, errors.New("address is required"))
+		return
+	}
+	b, err := scaci.Enroll(a.Reg, a.CA, a.SCEui, scaci.EnrollRequest{Name: q.SCName, ACEui: q.ACEui, ACName: q.Name,
+		Address: q.Address, ServerName: q.ServerName, CSR: []byte(q.CSR)})
+	if err != nil {
+		fail(w, 400, err)
+		return
+	}
+	reply(w, 201, b)
 }

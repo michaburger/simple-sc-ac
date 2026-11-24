@@ -120,6 +120,10 @@ func serve(cfg config.SC, env *app.Env, caDir string) error {
 	if err != nil {
 		return err
 	}
+	labCA, err := labca.Load(caDir)
+	if err != nil {
+		log.Warn("no lab certificate authority, Application Centers cannot be added over REST", "err", err)
+	}
 	var ac *scaci.Server
 	if len(env.Schemas.Versions(scaci.Interface)) > 0 {
 		policy, err := version.ParsePolicy(cfg.SCACI.Policy)
@@ -178,7 +182,7 @@ func serve(cfg config.SC, env *app.Env, caDir string) error {
 		go func() { errc <- ac.Serve(ctx, tls.NewListener(ln, tlsCfg)) }()
 	}
 	if cfg.Admin.Listen != "" && cfg.Admin.Listen != "-" {
-		srv := &http.Server{Addr: cfg.Admin.Listen, Handler: (&api.API{Reg: reg, BSSCI: bs, SCACI: ac, SCEui: env.EUI}).Handler(), ReadHeaderTimeout: 5 * time.Second}
+		srv := &http.Server{Addr: cfg.Admin.Listen, Handler: (&api.API{Reg: reg, BSSCI: bs, SCACI: ac, SCEui: env.EUI, CA: labCA}).Handler(), ReadHeaderTimeout: 5 * time.Second}
 		go func() { <-ctx.Done(); _ = srv.Close() }()
 		go func() {
 			log.Info("admin REST listening", "addr", cfg.Admin.Listen)

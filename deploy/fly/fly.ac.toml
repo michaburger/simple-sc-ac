@@ -1,0 +1,30 @@
+# fly.io deployment of simple-ac. It opens the connections to the Service Centers itself,
+# so it needs no public port and no dedicated IP address.
+#
+#   fly apps create <your-app>
+#   fly volumes create ac_data --size 1 --region fra -a <your-app>
+#   fly deploy --config deploy/fly/fly.ac.toml -a <your-app> --remote-only
+#
+# Onboarding through the REST interface: fly proxy 18108:8108 -a <your-app>, see
+# docs/fly-io.md.
+
+app = "simple-ac"
+primary_region = "fra"
+
+[build]
+  dockerfile = "../docker/Dockerfile"
+  [build.args]
+    PROGRAM = "simple-ac"
+
+[env]
+  SSCAC_DATA_DIR = "/data"
+  # Admin REST only on the private network of the organisation, no authentication.
+  SSCAC_ADMIN_LISTEN = "fly-local-6pn:8108"
+
+[mounts]
+  source = "ac_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

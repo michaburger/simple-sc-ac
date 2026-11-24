@@ -1,4 +1,5 @@
-# fly.io deployment of simple-sc. Base stations connect with raw TLS on port 16107, which
+# fly.io deployment of simple-sc. Base stations connect with raw TLS on port 16107 and
+# Application Centers on port 17107, which
 # needs a dedicated IPv4 address (fly ips allocate-v4) or IPv6. The admin REST interface
 # stays on 127.0.0.1 inside the machine, reach it with "fly ssh console" or "fly proxy".
 #
@@ -44,6 +45,17 @@ primary_region = "fra"
     interval = "30s"
     timeout = "5s"
     grace_period = "10s"
+
+# SCACI for Application Centers, also raw TLS.
+[[services]]
+  protocol = "tcp"
+  internal_port = 17107
+  auto_stop_machines = "off"
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 17107
 
 [[vm]]
   size = "shared-cpu-1x"

@@ -5,6 +5,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -39,6 +40,8 @@ func (a *API) Handler() http.Handler {
 	m := http.NewServeMux()
 	m.HandleFunc("GET /api/status", a.status)
 	m.HandleFunc("GET /api/servicecenters", a.listSC)
+	m.HandleFunc("POST /api/servicecenters", a.addSC)
+	m.HandleFunc("POST /api/servicecenters/{name}/request", a.requestSC)
 	m.HandleFunc("GET /api/servicecenters/{name}/status", a.scStatus)
 	m.HandleFunc("GET /api/endpoints", a.listEP)
 	m.HandleFunc("POST /api/endpoints", a.putEP)
@@ -184,4 +187,30 @@ func (a *API) uplinks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, 200, l)
+}
+
+// requestSC creates the key and the certificate request for a Service Center.
+func (a *API) requestSC(w http.ResponseWriter, r *http.Request) {
+	csr, err := a.Node.RequestFor(r.PathValue("name"))
+	if err != nil {
+		fail(w, 400, err)
+		return
+	}
+	reply(w, 201, map[string]string{"acEui": a.ACEui.String(), "csr": string(csr)})
+}
+
+// addSC imports a bundle and connects.
+func (a *API) addSC(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		fail(w, 400, err)
+		return
+	}
+	b, err := a.Node.AddServiceCenter(body)
+	if err != nil {
+		fail(w, 400, err)
+		return
+	}
+	c, _ := a.Node.Client(b.Name)
+	reply(w, 201, c.Info())
 }

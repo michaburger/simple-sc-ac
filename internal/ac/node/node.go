@@ -47,6 +47,7 @@ type Node struct {
 	cfg     Config
 	mu      sync.Mutex
 	clients map[string]*scclient.Client
+	runCtx  context.Context // set by Run, used to start Service Centers added later
 }
 
 // New loads the Service Centers from <data>/sc. A broken bundle is logged and skipped.
@@ -84,6 +85,9 @@ func (n *Node) load(dir string) error {
 
 // Run connects to all Service Centers until ctx ends.
 func (n *Node) Run(ctx context.Context) {
+	n.mu.Lock()
+	n.runCtx = ctx
+	n.mu.Unlock()
 	var wg sync.WaitGroup
 	for _, c := range n.Clients() {
 		wg.Add(1)
@@ -93,6 +97,48 @@ func (n *Node) Run(ctx context.Context) {
 		n.cfg.Log.Warn("no Service Center configured, add one with: simple-ac sc add <bundle.json>")
 	}
 	wg.Wait()
+}
+
+// AddServiceCenter imports a bundle (JSON) and connects to the Service Center at once.
+func (n *Node) AddServiceCenter(bundleJSON []byte) (onboard.Bundle, error) {
+	tmp, err := os.CreateTemp("", "bundle-*.json")
+	if err != nil {
+		return onboard.Bundle{}, err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(bundleJSON); err != nil {
+		tmp.Close()
+		return onboard.Bundle{}, err
+	}
+	tmp.Close()
+	b, err := Import(n.cfg.DataDir, tmp.Name(), n.cfg.ACEui)
+	if err != nil {
+		return b, err
+	}
+	n.mu.Lock()
+	old := n.clients[b.Name]
+	ctx := n.runCtx
+	n.mu.Unlock()
+	if old != nil {
+		old.Disconnect(context.Background())
+	}
+	if err := n.load(filepath.Join(n.cfg.DataDir, "sc", b.Name)); err != nil {
+		return b, err
+	}
+	if c, ok := n.Client(b.Name); ok && ctx != nil {
+		go c.Run(ctx)
+	}
+	return b, nil
+}
+
+// RequestFor creates key and certificate request for a Service Center and returns the
+// request.
+func (n *Node) RequestFor(name string) ([]byte, error) {
+	file, err := Request(n.cfg.DataDir, name, n.cfg.ACEui)
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadFile(file)
 }
 
 // Clients returns the Service Center connections, sorted by name.
