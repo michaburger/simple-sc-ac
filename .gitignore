@@ -1,16 +1,16 @@
 # Runtime data and secrets
 *.sqlite
 *.sqlite-*
-certs/
-trace/
-data/
+/certs/
+/trace/
+/data/
 *.key
 *.pem
 .env
 
 # Never in this repository: specification notes and lab notes belong elsewhere
-spec-refs/
-local/
+/spec-refs/
+/local/
 # Interface schema files are loaded at run time and never committed
 /schemas/
 
