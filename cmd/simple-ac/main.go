@@ -44,7 +44,7 @@ func run(args []string) error {
 		return err
 	}
 	env.Log.Info("started", "version", buildinfo.Version, "service_centers", len(cfg.ServiceCenters),
-		"note", "Service Center connections follow in the next milestones")
+		"note", "Application Center functions are not available yet")
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	<-ctx.Done()

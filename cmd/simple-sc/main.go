@@ -154,7 +154,7 @@ func serve(cfg config.SC, env *app.Env, caDir string) error {
 			}
 		}()
 	}
-	log.Info("started", "version", buildinfo.Version, "scaci", "follows in M2")
+	log.Info("started", "version", buildinfo.Version)
 	select {
 	case <-ctx.Done():
 	case err := <-errc:
