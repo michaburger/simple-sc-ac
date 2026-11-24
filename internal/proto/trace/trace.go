@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/michaburger/simple-sc-ac/internal/common/idt"
 	"github.com/michaburger/simple-sc-ac/internal/proto/schema"
 )
 
@@ -111,6 +112,12 @@ func prepareObject(s *schema.Schema, fields schema.Fields, obj map[string]any) m
 		if f != nil && s != nil {
 			if td, ok := s.Types[f.Type]; ok {
 				sub = td.Fields
+			}
+		}
+		if f != nil && f.Type == "eui64" {
+			if u, ok := schema.AsUint64(v); ok {
+				out[k] = idt.EUI64(u).String()
+				continue
 			}
 		}
 		if f != nil && f.Type == "bytes" {

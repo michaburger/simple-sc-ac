@@ -22,15 +22,20 @@ ACs, or one AC connected to several SCs.
 
 ## Status
 
-**Early development. There is nothing to run yet.** This README will get a quick start as
-soon as the first version can accept a base station. Watch or star the repository to
-follow.
+**Early development.** What works today:
 
-What the first usable version will do:
+- `simple-sc` accepts base stations over BSSCI 1.0 and 1.1 (TLS on port 16107), attaches
+  end-points over the air, propagates them to the other base stations, and stores
+  deduplicated uplinks.
+- End-points are entered through a local REST interface on `127.0.0.1:8107` for now.
+- `sim-bs` simulates a base station with end-points, `trace-view` shows every message.
 
-1. Accept a base station (for example a Weptech AVA) on the default port 16107.
-2. Attach an end-point that you added with its keys.
-3. Show its uplinks, decoded, on an MQTT broker.
+Not there yet: the Application Center `simple-ac`, MQTT output, downlinks. Watch or star
+the repository to follow.
+
+simple-sc reads the message definitions of the interfaces from schema files in its data
+directory (`data/schemas`). They are derived from the mioty specifications and are not
+part of this repository, see "mioty interfaces" below.
 
 ## Planned ways to run it
 

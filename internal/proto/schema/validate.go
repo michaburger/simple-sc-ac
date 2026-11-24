@@ -161,6 +161,13 @@ func (s *Schema) checkValue(path, typ string, f *Field, v any) []Finding {
 		}
 	case "array":
 		arr, ok := v.([]any)
+		if b, isBytes := v.([]byte); isBytes && (f.Items == "integer" || f.Items == "number") {
+			// a byte slice is written as an array of integers on the wire (codec)
+			arr, ok = make([]any, len(b)), true
+			for i, c := range b {
+				arr[i] = uint64(c)
+			}
+		}
 		if !ok {
 			return bad(path, "want array, got %T", v)
 		}

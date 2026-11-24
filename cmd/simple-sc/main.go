@@ -7,19 +7,30 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/michaburger/simple-sc-ac/internal/common/app"
 	"github.com/michaburger/simple-sc-ac/internal/common/buildinfo"
 	"github.com/michaburger/simple-sc-ac/internal/common/config"
 	"github.com/michaburger/simple-sc-ac/internal/common/idt"
 	"github.com/michaburger/simple-sc-ac/internal/common/labca"
+	"github.com/michaburger/simple-sc-ac/internal/proto/engine"
+	"github.com/michaburger/simple-sc-ac/internal/proto/trace"
+	"github.com/michaburger/simple-sc-ac/internal/proto/version"
+	"github.com/michaburger/simple-sc-ac/internal/sc/api"
+	"github.com/michaburger/simple-sc-ac/internal/sc/bssci"
+	"github.com/michaburger/simple-sc-ac/internal/sc/registry"
 )
 
 func main() {
@@ -66,17 +77,108 @@ func run(args []string) error {
 		}
 		env.Log.Info("server certificate issued", "file", filepath.Join(caDir, "sc.pem"))
 	}
-	if len(env.Schemas.Versions("bssci")) == 0 {
-		env.Log.Warn("no BSSCI schema files, the BSSCI port stays closed", "schema_dir", cfg.SchemaDir)
-	}
-	env.Log.Info("started", "version", buildinfo.Version, "bssci", cfg.BSSCI.Listen, "scaci", cfg.SCACI.Listen,
-		"note", "base station and Application Center connections follow in the next milestones")
+	return serve(cfg, env, caDir)
+}
 
+func serve(cfg config.SC, env *app.Env, caDir string) error {
+	log := env.Log
+	reg, err := registry.Open(filepath.Join(cfg.DataDir, "sc.sqlite"))
+	if err != nil {
+		return err
+	}
+	defer reg.Close()
+	var sink trace.Sink = trace.Discard
+	if cfg.TraceFile != "-" {
+		if err := os.MkdirAll(filepath.Dir(cfg.TraceFile), 0o755); err != nil {
+			return err
+		}
+		f, err := os.OpenFile(cfg.TraceFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		sink = trace.NewJSONLines(f)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	<-ctx.Done()
-	env.Log.Info("stopped")
+	errc := make(chan error, 2)
+
+	var bs *bssci.Server
+	if len(env.Schemas.Versions(bssci.Interface)) == 0 {
+		log.Warn("no BSSCI schema files, the BSSCI port stays closed", "schema_dir", cfg.SchemaDir)
+	} else {
+		tlsCfg, err := serverTLS(cfg.BSSCI, caDir)
+		if err != nil {
+			return err
+		}
+		policy, err := version.ParsePolicy(cfg.BSSCI.Policy)
+		if err != nil {
+			return err
+		}
+		mode := engine.Lenient
+		if cfg.BSSCI.Mode == "strict" {
+			mode = engine.Strict
+		}
+		bs, err = bssci.New(bssci.Config{
+			SCEui: env.EUI, Schemas: env.Schemas, Registry: reg, Log: log.With("iface", "bssci"), Trace: sink, TLS: tlsCfg,
+			Policy: policy, Mode: mode, Unknown: cfg.BSSCI.UnknownBaseStations, ResponseTimeout: cfg.BSSCI.ResponseTimeout,
+			IdlePing: cfg.BSSCI.IdlePing, StatusInterval: cfg.BSSCI.StatusInterval, DedupWindow: cfg.BSSCI.DedupWindow,
+			Name: "simple-sc", SwVersion: buildinfo.Version,
+		})
+		if err != nil {
+			return err
+		}
+		ln, err := net.Listen("tcp", cfg.BSSCI.Listen)
+		if err != nil {
+			return fmt.Errorf("BSSCI listen: %w", err)
+		}
+		log.Info("BSSCI listening", "addr", cfg.BSSCI.Listen, "versions", env.Schemas.Versions(bssci.Interface), "unknown_base_stations", cfg.BSSCI.UnknownBaseStations)
+		go func() { errc <- bs.Serve(ctx, tls.NewListener(ln, tlsCfg)) }()
+	}
+	if cfg.Admin.Listen != "" && cfg.Admin.Listen != "-" {
+		srv := &http.Server{Addr: cfg.Admin.Listen, Handler: (&api.API{Reg: reg, BSSCI: bs, SCEui: env.EUI}).Handler(), ReadHeaderTimeout: 5 * time.Second}
+		go func() { <-ctx.Done(); _ = srv.Close() }()
+		go func() {
+			log.Info("admin REST listening", "addr", cfg.Admin.Listen)
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errc <- err
+			}
+		}()
+	}
+	log.Info("started", "version", buildinfo.Version, "scaci", "follows in M2")
+	select {
+	case <-ctx.Done():
+	case err := <-errc:
+		if err != nil {
+			return err
+		}
+	}
+	log.Info("stopped")
 	return nil
+}
+
+// serverTLS uses the configured files, or the lab CA and server certificate.
+func serverTLS(o config.BSSCIOptions, caDir string) (*tls.Config, error) {
+	cert, key, ca := o.CertFile, o.KeyFile, o.CAFile
+	if cert == "" {
+		cert, key = filepath.Join(caDir, "sc.pem"), filepath.Join(caDir, "sc.key")
+	}
+	if ca == "" {
+		ca = filepath.Join(caDir, labca.CACert)
+	}
+	pair, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return nil, fmt.Errorf("server certificate: %w", err)
+	}
+	caPEM, err := os.ReadFile(ca)
+	if err != nil {
+		return nil, fmt.Errorf("CA for base stations: %w", err)
+	}
+	pool, err := bssci.ClientCAPool(caPEM)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{Certificates: []tls.Certificate{pair}, ClientCAs: pool, ClientAuth: tls.RequireAndVerifyClientCert, MinVersion: tls.VersionTLS12}, nil
 }
 
 func loadConfig(path string) (config.SC, error) {

@@ -480,8 +480,8 @@ func (e *Engine) onPeerOperation(ctx context.Context, id int64, cmd string, msg 
 		case cmd == o.op.Command+"Cmp" || cmd == "errorAck":
 			e.endServing(id, msg, nil)
 		case cmd == "error":
+			_ = e.send(message("errorAck", id, nil)) // before the end, which may close the connection
 			e.endServing(id, nil, Errorf(EINVAL, "%v", msg["message"]))
-			_ = e.send(message("errorAck", id, nil))
 		default:
 			e.note(trace.In, msg, "unexpected command in running operation")
 		}

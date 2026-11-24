@@ -37,11 +37,30 @@ type Listener struct {
 	IdlePing        time.Duration `toml:"idle_ping"`
 }
 
+// BSSCIOptions are the base station settings of simple-sc.
+type BSSCIOptions struct {
+	Listener
+	// UnknownBaseStations: reject, pending (default) or accept, see the trust model.
+	UnknownBaseStations string        `toml:"unknown_base_stations"`
+	DedupWindow         time.Duration `toml:"dedup_window"`
+	StatusInterval      time.Duration `toml:"status_interval"`
+	// TLS files, default: the lab CA and server certificate under <data_dir>/ca.
+	CertFile string `toml:"cert_file"`
+	KeyFile  string `toml:"key_file"`
+	CAFile   string `toml:"ca_file"`
+}
+
+// Admin is the local REST interface.
+type Admin struct {
+	Listen string `toml:"listen"`
+}
+
 // SC is the configuration of simple-sc.
 type SC struct {
 	Common
-	BSSCI Listener `toml:"bssci"`
-	SCACI Listener `toml:"scaci"`
+	BSSCI BSSCIOptions `toml:"bssci"`
+	SCACI Listener     `toml:"scaci"`
+	Admin Admin        `toml:"admin"`
 }
 
 // ServiceCenter is one SC that simple-ac connects to.
@@ -74,8 +93,12 @@ func DefaultDataDir() string {
 func DefaultSC() SC {
 	return SC{
 		Common: Common{LogLevel: "info"},
-		BSSCI:  Listener{Listen: ":16107", Policy: "follow", Mode: "lenient", ResponseTimeout: 5 * time.Second, IdlePing: 10 * time.Second},
-		SCACI:  Listener{Listen: ":17107", Policy: "follow", Mode: "strict", ResponseTimeout: 5 * time.Second, IdlePing: 10 * time.Second},
+		BSSCI: BSSCIOptions{
+			Listener:            Listener{Listen: ":16107", Policy: "follow", Mode: "lenient", ResponseTimeout: 5 * time.Second, IdlePing: 10 * time.Second},
+			UnknownBaseStations: "pending", DedupWindow: 500 * time.Millisecond, StatusInterval: 60 * time.Second,
+		},
+		Admin: Admin{Listen: "127.0.0.1:8107"},
+		SCACI: Listener{Listen: ":17107", Policy: "follow", Mode: "strict", ResponseTimeout: 5 * time.Second, IdlePing: 10 * time.Second},
 	}
 }
 
