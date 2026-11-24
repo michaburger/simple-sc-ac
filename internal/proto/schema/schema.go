@@ -46,15 +46,23 @@ type Fields map[string]*Field
 
 // Operation is one operation of an interface.
 type Operation struct {
-	Command         string `yaml:"-"`
-	Title           string `yaml:"title"`
-	Clause          string `yaml:"clause"`
-	Initiator       string `yaml:"initiator"` // a role name, or "both"
-	OptionalFeature bool   `yaml:"optional_feature"`
-	Note            string `yaml:"note"`
-	Init            Fields `yaml:"init"`
-	Response        Fields `yaml:"response"`
-	Complete        Fields `yaml:"complete"`
+	Command         string           `yaml:"-"`
+	Title           string           `yaml:"title"`
+	Clause          string           `yaml:"clause"`
+	Initiator       string           `yaml:"initiator"` // a role name, or "both"
+	OptionalFeature bool             `yaml:"optional_feature"`
+	Note            string           `yaml:"note"`
+	ErrorConditions []ErrorCondition `yaml:"error_conditions"`
+	Init            Fields           `yaml:"init"`
+	Response        Fields           `yaml:"response"`
+	Complete        Fields           `yaml:"complete"`
+}
+
+// ErrorCondition is a reason the document lists for an error answer to a message part.
+type ErrorCondition struct {
+	Part   string `yaml:"part"` // init, response or complete
+	Code   string `yaml:"code"` // POSIX name, e.g. EOPNOTSUPP
+	Reason string `yaml:"reason"`
 }
 
 // TypeDef is a named object type that fields can refer to.
@@ -155,7 +163,7 @@ func (s *Schema) Commands() []string {
 
 var baseTypes = map[string]bool{
 	"string": true, "bool": true, "object": true, "integer": true, "number": true,
-	"eui64": true, "bytes": true, "array": true, "enum": true,
+	"eui64": true, "bytes": true, "array": true, "enum": true, "any": true,
 }
 
 // Parse reads one schema file and checks it for consistency.

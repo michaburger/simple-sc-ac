@@ -110,6 +110,8 @@ func bad(path, format string, a ...any) []Finding {
 
 func (s *Schema) checkValue(path, typ string, f *Field, v any) []Finding {
 	switch typ {
+	case "any":
+		return nil
 	case "string":
 		str, ok := v.(string)
 		if !ok {
