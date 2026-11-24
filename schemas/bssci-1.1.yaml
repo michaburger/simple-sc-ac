@@ -24,7 +24,7 @@ operations:
 
   con:
     title: "Connect"
-    initiator: both
+    initiator: bs
     error_conditions:
       - {part: init, code: EPROTONOSUPPORT, reason: "Protocol version not supported"}
       - {part: init, code: EPERM, reason: "Base Station EUI already in use"}
@@ -204,7 +204,7 @@ operations:
 
   attPrp:
     title: "Attach propagate"
-    initiator: both
+    initiator: sc
     error_conditions:
       - {part: init, code: EOPNOTSUPP, reason: "Short address bin limit exceeded"}
       - {part: init, code: EPERM, reason: "End Point EUI already in use for an End Point group"}
@@ -354,7 +354,7 @@ operations:
 
   dlDataQue:
     title: "DL data queue"
-    initiator: both
+    initiator: sc
     error_conditions:
       - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class A support"}
       - {part: init, code: EOPNOTSUPP, reason: "Base Station has no class B support"}

@@ -67,8 +67,8 @@ types:
       name: {type: "string", spec: "String"}
       comment: {type: "string", spec: "String"}
       type: {type: "enum", values: ["module", "parameter", "input", "output", "message", "procedure", "caller"], spec: "String"}
-      dtype: {type: "any", spec: "String or Object", note: "String or Object"}
-      permit: {type: "array", items: "number", len: 2, spec: "Numeric[2]"}
+      dtype: {type: "any", presence: "conditional", when: "outputs and procedures only", spec: "String or Object", note: "String or Object"}
+      permit: {type: "array", items: "number", len: 2, presence: "conditional", when: "parameters and procedures only", spec: "Numeric[2]"}
   parameter:
     fields:
       name: {type: "string", spec: "String"}
@@ -84,7 +84,7 @@ operations:
 
   con:
     title: "Connect"
-    initiator: both
+    initiator: ac
     error_conditions:
       - {part: init, code: EPROTONOSUPPORT, reason: "Protocol version not supported"}
       - {part: init, code: EPERM, reason: "Base Station EUI already in use"}
@@ -259,7 +259,7 @@ operations:
 
   dlDataQue:
     title: "DL data queue"
-    initiator: both
+    initiator: ac
     error_conditions:
       - {part: init, code: EOPNOTSUPP, reason: "End Point unknown"}
       - {part: init, code: EPERM, reason: "End Point not associated"}
@@ -388,14 +388,14 @@ operations:
     init:
       epEui: {type: "eui64", spec: "Numeric"}
       epStatus: {type: "enum", values: ["attached", "detached", "synchronized", "desynchronized"], spec: "String"}
-      baseStations: {type: "array", items: "uldata.baseStation", spec: "Object[]"}
-      attachCnt: {type: "integer", signed: false, spec: "Numeric"}
-      packetCnt: {type: "integer", signed: false, spec: "Numeric"}
-      nonce: {type: "bytes", len: 4, spec: "Numeric[4]"}
-      sign: {type: "bytes", len: 4, spec: "Numeric[4]"}
-      shAddr: {type: "integer", bits: 16, signed: false, spec: "Numeric"}
-      bsEui: {type: "eui64", spec: "Numeric"}
-      bcnPrd: {type: "integer", spec: "Numeric", note: "width not stated"}
+      baseStations: {type: "array", items: "uldata.baseStation", presence: "conditional", when: "over the air attach and detach only", spec: "Object[]", note: "reception object as in UL data"}
+      attachCnt: {type: "integer", signed: false, presence: "conditional", when: "over the air attach and detach only", spec: "Numeric"}
+      packetCnt: {type: "integer", signed: false, presence: "conditional", when: "over the air detach only", spec: "Numeric"}
+      nonce: {type: "bytes", len: 4, presence: "conditional", when: "over the air attach only", spec: "Numeric[4]"}
+      sign: {type: "bytes", len: 4, presence: "conditional", when: "over the air attach and detach only", spec: "Numeric[4]"}
+      shAddr: {type: "integer", bits: 16, signed: false, presence: "conditional", when: "over the air attach only", spec: "Numeric"}
+      bsEui: {type: "eui64", presence: "conditional", when: "synchronization only", spec: "Numeric"}
+      bcnPrd: {type: "integer", presence: "conditional", when: "synchronization only", spec: "Numeric", note: "width not stated"}
     response: {}
     complete: {}
 
@@ -501,8 +501,8 @@ operations:
     init:
       path: {type: "string", spec: "String"}
     response:
-      conn: {type: "array", items: "string", spec: "String[]"}
-      class: {type: "string", spec: "String"}
+      conn: {type: "array", items: "string", presence: "conditional", when: "procedures and caller only", spec: "String[]"}
+      class: {type: "string", presence: "conditional", when: "modules only", spec: "String"}
       statConf: {type: "object", presence: "optional", spec: "Object"}
     complete: {}
 
