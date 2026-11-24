@@ -352,7 +352,7 @@ func (sess *Session) handle(ctx context.Context, op *schema.Operation, msg map[s
 	case "discon":
 		return sess.sch.Fit(op, schema.Response, map[string]any{}), nil
 	case "dlDataRes", "dlRxStat":
-		sess.log.Info("received, handled from M4 on", "command", op.Command)
+		sess.log.Info("received, downlink handling is not implemented yet", "command", op.Command)
 		return map[string]any{}, nil
 	}
 	return nil, engine.Errorf(engine.EOPNOTSUPP, "%s not supported by simple-sc yet", op.Command)
