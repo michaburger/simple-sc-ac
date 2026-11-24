@@ -43,7 +43,8 @@ func Start(role string, c *config.Common) (*Env, error) {
 		return nil, err
 	}
 	log = log.With("program", "simple-"+role)
-	for _, d := range []string{c.DataDir, filepath.Join(c.DataDir, "identity")} {
+	// The schema directory is created empty, so that it is clear where the files go.
+	for _, d := range []string{c.DataDir, filepath.Join(c.DataDir, "identity"), c.SchemaDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return nil, fmt.Errorf("data directory: %w", err)
 		}

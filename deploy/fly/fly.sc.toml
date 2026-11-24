@@ -9,7 +9,7 @@
 #
 # Put the interface schema files into /data/schemas (fly ssh sftp shell), then restart.
 
-app = "simple-sc"
+app = "simple-sc-ac-sc"
 primary_region = "fra"
 
 [build]
